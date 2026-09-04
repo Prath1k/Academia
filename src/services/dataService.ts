@@ -71,6 +71,7 @@ export const dataService = {
         .eq('profile_id', profileId)
         .single();
       if (!error && data) return data as StudentProfile;
+      return null;
     }
     const found = localStudentProfiles.find(s => s.profile_id === profileId || s.id === profileId);
     return found || localStudentProfiles[0];

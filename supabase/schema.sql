@@ -1,5 +1,5 @@
 -- ====================================================================
--- ACADEMIA-INDUSTRY COLLABORATION PORTAL SCHEMA (SIH Problem No: SIH26044)
+-- ACADEMIA-INDUSTRY COLLABORATION PORTAL SCHEMA
 -- Sponsoring Ministry: Ministry of Ayush / Centralized Collaboration Hub
 -- Supports Students, Academicians, Industry Recruiters, and Institutions
 -- ====================================================================
@@ -585,20 +585,20 @@ INSERT INTO public.opportunity_skills (opportunity_id, skill_id, is_mandatory, w
 ('44444444-4444-4444-4444-444444440003', '11111111-1111-1111-1111-111111110006', false, 1.0)
 ON CONFLICT DO NOTHING;
 
--- Seed Dedicated Faculty / Academician Opportunities (SIH Requirement)
+-- Seed Dedicated Faculty / Academician Opportunities
 INSERT INTO public.faculty_opportunities (id, posted_by, title, type, department, duration, stipend_or_grant, location, requirements, description) VALUES
 ('55555555-5555-5555-5555-555555550001', '22222222-2222-2222-2222-222222220004', 'Industrial Faculty Sabbatical in High-Throughput Drug Screening', 'faculty_internship', 'Biosciences & Pharmacology', '2 Months', '₹85,000 / month grant', 'Pune R&D Hub', 'Ph.D / Associate Professors in Life Sciences, Chemistry, or Ayush medicine.', 'Hands-on industrial research sabbatical to understand industrial validation pipelines and modernize university curriculum.'),
 ('55555555-5555-5555-5555-555555550002', '22222222-2222-2222-2222-222222220005', 'Faculty Development Program (FDP): AI in Healthcare Diagnostics', 'fdp', 'Computer Science & Biomedical Eng', '2 Weeks', 'Fully Sponsored', 'Online / Virtual', 'Faculty members teaching Computer Science, Data Science, or Medical Electronics.', 'Intensive hands-on training on deploying medical imaging algorithms and EHR automation in hospital networks.'),
 ('55555555-5555-5555-5555-555555550003', '22222222-2222-2222-2222-222222220004', 'Collaborative Research Grant: Standardization of Polyherbal Extracts', 'collaborative_research', 'Pharmacognosy & Chemistry', '12 Months', '₹15,00,000 Project Grant', 'University Lab & Industry Lab', 'Recognized University Lab with HPTLC and spectroscopic facilities.', 'Joint academia-industry funded research to establish standardized pharmacopoeial protocols for high-demand wellness herbs.')
 ON CONFLICT (id) DO NOTHING;
 
--- Seed Industry Learning Programs (SIH Requirement)
+-- Seed Industry Learning Programs
 INSERT INTO public.learning_programs (id, company_id, title, provider_name, type, duration_hours, syllabus_summary, target_skills, link_url, enrollment_count) VALUES
 ('66666666-6666-6666-6666-666666660001', '22222222-2222-2222-2222-222222220004', 'GCP & Clinical Documentation Mastery', 'Sun Phytotech Academy', 'certification', 16, 'Ethics in trials, adverse event reporting, ICH-GCP regulatory filing.', ARRAY['Good Clinical Practice (GCP)', 'Pharmacovigilance & Drug Safety'], 'https://ayurgyan.gov.in', 280),
 ('66666666-6666-6666-6666-666666660002', '22222222-2222-2222-2222-222222220005', 'Modern Full-Stack Healthcare Engineering', 'Apex Health Labs', 'workshop', 24, 'Building HIPAA/NABH compliant microservices with React & FastAPIs.', ARRAY['Full-Stack Web Development', 'Healthcare Informatics & EHR'], 'https://swayam.gov.in', 420)
 ON CONFLICT (id) DO NOTHING;
 
--- Seed Student Digital Portfolio Items (SIH Requirement)
+-- Seed Student Digital Portfolio Items
 INSERT INTO public.digital_portfolio_items (student_profile_id, title, item_type, description, verification_status, verification_issuer, date_awarded) VALUES
 ('33333333-3333-3333-3333-333333330001', 'AI-Assisted Diagnostic Triage for Primary Health Centers', 'project', 'Developed an automated symptom-triage engine deployed across 4 community clinics.', 'verified', 'Smart Healthcare Hackathon Winner', '2026-04-15'),
 ('33333333-3333-3333-3333-333333330002', 'Standardization of Ashwagandha Active Withanolides using HPTLC', 'project', 'Conducted chromatographic fingerprinting across 12 harvested regional samples.', 'verified', 'National Institute of Ayurveda', '2026-05-20')

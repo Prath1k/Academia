@@ -340,7 +340,7 @@ export const AuthModal: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Instant Demo Sandbox Shortcut for SIH Judges */}
+          {/* Instant demo access for reviewers */}
           <div className="pt-2 border-t border-slate-800/80">
             <button
               type="button"

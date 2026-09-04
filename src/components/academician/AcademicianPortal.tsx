@@ -85,7 +85,6 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
               <Microscope className="w-3 h-3 text-teal-400" />
               Dedicated Academician & Faculty Hub
             </span>
-            <span className="text-xs text-slate-400">SIH26044 Mandated Feature</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">

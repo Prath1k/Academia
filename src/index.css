@@ -3,8 +3,36 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --ink: #111827;
+    --muted: #64748b;
+    --blue: #2563eb;
+    --blue-soft: #e8f3ff;
+    --page: #f7fafc;
+    --surface: #ffffff;
+    --line: #d9e2ec;
+  }
+
+  html {
+    background: var(--page);
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--page);
+    color: var(--ink);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=2200&q=80');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.025;
   }
 
   h1, h2, h3, .font-heading {
@@ -18,34 +46,112 @@
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #020617;
+  background: var(--page);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #b8c7d9;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #8fa4bd;
 }
 
-/* Glassmorphism helpers */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 22px rgba(30, 64, 92, 0.05);
 }
 
 .glass-panel-hover {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .glass-panel-hover:hover {
   transform: translateY(-2px);
-  border-color: rgba(34, 197, 94, 0.3);
-  box-shadow: 0 12px 30px -10px rgba(34, 197, 94, 0.15);
+  border-color: #8ab8ed;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.1);
 }
 
-.glow-emerald {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.3);
+.workspace-selector {
+  position: relative;
+  isolation: isolate;
+}
+
+.workspace-selector::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36%;
+  height: 240px;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=80');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.16;
+  border-radius: 0 0 0 120px;
+  mask-image: linear-gradient(to right, transparent, black 38%);
+}
+
+.home-hero {
+  background-image:
+    linear-gradient(90deg, rgba(232, 243, 255, 0.98) 0%, rgba(232, 243, 255, 0.9) 43%, rgba(232, 243, 255, 0.42) 76%, rgba(232, 243, 255, 0.28) 100%),
+    url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=2200&q=85');
+  background-size: cover;
+  background-position: center;
+}
+
+@media (max-width: 640px) {
+  .home-hero {
+    background-position: 62% center;
+    background-image:
+      linear-gradient(90deg, rgba(232, 243, 255, 0.96) 0%, rgba(232, 243, 255, 0.82) 100%),
+      url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=85');
+  }
+}
+
+/* Remap shared utility colors so existing role views inherit the new system. */
+.bg-slate-950, .bg-slate-950\/80, .bg-slate-950\/60, .bg-slate-950\/40,
+.bg-slate-950\/70, .bg-slate-950\/90, .bg-slate-900, .bg-slate-900\/90,
+.bg-slate-900\/60 {
+  background-color: var(--surface) !important;
+}
+
+.text-slate-100, .text-slate-200 {
+  color: var(--ink) !important;
+}
+
+.text-slate-300, .text-slate-400, .text-slate-500 {
+  color: var(--muted) !important;
+}
+
+.border-slate-700, .border-slate-800, .border-slate-800\/80,
+.border-slate-800\/60, .border-slate-700\/80 {
+  border-color: var(--line) !important;
+}
+
+.bg-emerald-600, .bg-teal-600, .bg-blue-600, .bg-violet-600, .bg-purple-600 {
+  background-color: var(--blue) !important;
+}
+
+.hover\:bg-emerald-500:hover, .hover\:bg-teal-500:hover, .hover\:bg-blue-500:hover,
+.hover\:bg-violet-500:hover, .hover\:bg-purple-500:hover {
+  background-color: #1d4ed8 !important;
+}
+
+.text-emerald-400, .text-emerald-300, .text-teal-400, .text-teal-300,
+.text-blue-400, .text-blue-300, .text-violet-400, .text-purple-400 {
+  color: var(--blue) !important;
+}
+
+.bg-emerald-950, .bg-emerald-950\/70, .bg-teal-950, .bg-blue-950,
+.bg-violet-950, .bg-purple-950 {
+  background-color: var(--blue-soft) !important;
+}
+
+.border-emerald-800\/40, .border-emerald-800\/60, .border-teal-800\/40,
+.border-blue-800\/40, .border-violet-800\/40, .border-purple-800\/40 {
+  border-color: #b9d7f6 !important;
 }
 
 @keyframes pulse-subtle {
@@ -55,4 +161,13 @@
 
 .animate-pulse-subtle {
   animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 1px;
 }

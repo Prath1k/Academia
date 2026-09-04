@@ -12,6 +12,9 @@ export interface AuthUser {
   fullName: string;
   avatarUrl?: string;
   institutionOrCompany?: string;
+  department?: string;
+  bio?: string;
+  phone?: string;
   isDemoUser?: boolean;
 }
 
@@ -192,13 +195,19 @@ export const authService = {
           .single();
 
         if (existing) {
+          if (existing.role === 'student') {
+            await this.ensureStudentProfile(userId);
+          }
           return {
             id: existing.id,
             email: existing.email,
             role: existing.role,
             fullName: existing.full_name,
             avatarUrl: existing.avatar_url,
-            institutionOrCompany: existing.institution_or_company
+            institutionOrCompany: existing.institution_or_company,
+            department: existing.department,
+            bio: existing.bio,
+            phone: existing.phone
           };
         } else {
           // Upsert new profile record
@@ -213,6 +222,9 @@ export const authService = {
             }
           ]);
           if (profileError) throw new Error(profileError.message);
+          if (role === 'student') {
+            await this.ensureStudentProfile(userId);
+          }
         }
       } catch (err) {
         console.warn('Profile sync error:', err);
@@ -228,6 +240,74 @@ export const authService = {
     };
   },
 
+  async updateProfile(
+    userId: string,
+    updates: {
+      fullName: string;
+      institutionOrCompany: string;
+      department: string;
+      bio: string;
+      phone: string;
+    }
+  ): Promise<AuthUser> {
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: updates.fullName,
+          institution_or_company: updates.institutionOrCompany,
+          department: updates.department,
+          bio: updates.bio,
+          phone: updates.phone
+        })
+        .eq('id', userId)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      const updatedUser: AuthUser = {
+        id: data.id,
+        email: data.email,
+        role: data.role,
+        fullName: data.full_name,
+        avatarUrl: data.avatar_url,
+        institutionOrCompany: data.institution_or_company,
+        department: data.department,
+        bio: data.bio,
+        phone: data.phone
+      };
+      this.saveLocalSession(updatedUser);
+      return updatedUser;
+    }
+
+    const saved = localStorage.getItem(ACTIVE_SESSION_USER_KEY);
+    const updatedUser: AuthUser = {
+      ...(saved ? JSON.parse(saved) : {}),
+      id: userId,
+      fullName: updates.fullName,
+      institutionOrCompany: updates.institutionOrCompany
+    } as AuthUser;
+    this.saveLocalSession(updatedUser);
+    return updatedUser;
+  },
+
+  async ensureStudentProfile(userId: string): Promise<void> {
+    if (!supabase || !isSupabaseConfigured()) return;
+    const { data, error } = await supabase
+      .from('student_profiles')
+      .select('id')
+      .eq('profile_id', userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      const { error: insertError } = await supabase.from('student_profiles').insert({
+        profile_id: userId,
+        degree: 'Student',
+        major: 'Undeclared'
+      });
+      if (insertError) throw new Error(insertError.message);
+    }
+  },
+
   // Helper: Simulated / Demo Quick Login for testing & judging
   simulateDemoLogin(role: UserRole, email?: string, name?: string, org?: string): { user: AuthUser } {
     const defaultMock = MOCK_PROFILES.find(p => p.role === role) || MOCK_PROFILES[0];
@@ -238,6 +318,9 @@ export const authService = {
       fullName: name || defaultMock.full_name,
       avatarUrl: defaultMock.avatar_url,
       institutionOrCompany: org || defaultMock.institution_or_company,
+      department: defaultMock.department,
+      bio: defaultMock.bio,
+      phone: defaultMock.phone,
       isDemoUser: true
     };
     this.saveLocalSession(authUser);

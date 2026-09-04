@@ -6,32 +6,29 @@ import {
   Microscope,
   Building2,
   School,
-  Database,
-  ShieldCheck,
   LogIn,
   LogOut
 } from 'lucide-react';
-import { isSupabaseConfigured } from '../services/supabaseClient';
 
 interface Props {
   currentRole: UserRole;
   onRoleChange: (role: UserRole) => void;
-  onOpenBackendModal: () => void;
   currentUser: AuthUser | null;
   onOpenAuthModal: (role?: UserRole) => void;
+  onOpenProfile: () => void;
+  onGoHome: () => void;
   onSignOut: () => void;
 }
 
 export const Navbar: React.FC<Props> = ({
   currentRole,
   onRoleChange,
-  onOpenBackendModal,
   currentUser,
   onOpenAuthModal,
+  onOpenProfile,
+  onGoHome,
   onSignOut
 }) => {
-  const isLive = isSupabaseConfigured();
-
   const roles: Array<{ role: UserRole; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { role: 'student', label: 'Student Portal', icon: GraduationCap },
     { role: 'academician', label: 'Academician / Faculty', icon: Microscope },
@@ -40,29 +37,26 @@ export const Navbar: React.FC<Props> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo & Hackathon Tag */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 shrink-0">
+          <button onClick={onGoHome} className="flex items-center gap-3 text-left">
+            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20 shrink-0">
               <GraduationCap className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-heading font-bold text-lg text-white tracking-tight">
-                  Academia<span className="text-emerald-400">Nexus</span>
-                </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-mono font-medium">
-                  SIH26044
+                <span className="font-heading font-bold text-lg text-slate-900 tracking-tight">
+                  Academia<span className="text-blue-600">Nexus</span>
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block">Skill Mapping, Internships & Placement Platform</p>
             </div>
-          </div>
+          </button>
 
           {/* Role Navigation Tabs */}
-          <nav className="hidden lg:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+          {currentUser ? <nav className="hidden lg:flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
             {roles.map(({ role, label, icon: Icon }) => {
               const active = currentRole === role;
               return (
@@ -71,8 +65,8 @@ export const Navbar: React.FC<Props> = ({
                   onClick={() => onRoleChange(role)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     active
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-blue-50'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -80,38 +74,18 @@ export const Navbar: React.FC<Props> = ({
                 </button>
               );
             })}
-          </nav>
+          </nav> : <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-500">
+            <a href="#opportunities" className="hover:text-blue-700">Opportunities</a>
+            <a href="#how-it-works" className="hover:text-blue-700">How it works</a>
+            <a href="#for-employers" className="hover:text-blue-700">For employers</a>
+          </nav>}
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Backend Status Badge Button */}
-            <button
-              onClick={onOpenBackendModal}
-              title="Click to check live Supabase tables"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                isLive
-                  ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300 hover:bg-emerald-950/70'
-                  : 'bg-slate-900 border-slate-700/80 text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              {isLive ? (
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <Database className="w-3.5 h-3.5 text-emerald-400" />
-              )}
-              <span className="hidden md:inline">
-                {isLive ? 'Supabase Live' : 'Backend Active'}
-              </span>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-            </button>
-
             {/* Authentication Button / User Profile */}
             {currentUser ? (
               <div className="flex items-center gap-2 pl-1 sm:pl-2 border-l border-slate-800">
-                <div className="flex items-center gap-2">
+                <button onClick={onOpenProfile} className="flex items-center gap-2 text-left">
                   {currentUser.avatarUrl ? (
                     <img
                       src={currentUser.avatarUrl}
@@ -131,12 +105,12 @@ export const Navbar: React.FC<Props> = ({
                       {currentUser.role} Account
                     </p>
                   </div>
-                </div>
+                </button>
 
                 <button
                   onClick={onSignOut}
                   title="Sign Out"
-                  className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+                  className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-100 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -145,7 +119,7 @@ export const Navbar: React.FC<Props> = ({
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => onOpenAuthModal(currentRole)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/20 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md shadow-blue-600/20 transition-all"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
@@ -157,7 +131,7 @@ export const Navbar: React.FC<Props> = ({
       </div>
 
       {/* Mobile Role Switcher */}
-      <div className="flex lg:hidden overflow-x-auto px-4 py-2 bg-slate-900/80 border-t border-slate-800 gap-1">
+      {currentUser && <div className="flex lg:hidden overflow-x-auto px-4 py-2 bg-white border-t border-slate-200 gap-1">
         {roles.map(({ role, label, icon: Icon }) => (
           <button
             key={role}
@@ -170,7 +144,7 @@ export const Navbar: React.FC<Props> = ({
             <span>{label}</span>
           </button>
         ))}
-      </div>
+      </div>}
     </header>
   );
 };
