@@ -97,7 +97,7 @@ export const authService = {
             institutionOrCompany
           };
           // Insert profile into Supabase profiles table
-          await supabase.from('profiles').upsert([
+          const { error: profileError } = await supabase.from('profiles').upsert([
             {
               id: data.user.id,
               role,
@@ -106,6 +106,7 @@ export const authService = {
               institution_or_company: institutionOrCompany
             }
           ]);
+          if (profileError) return { error: profileError.message };
           this.saveLocalSession(authUser);
           return { user: authUser, message: 'Account registered successfully!' };
         }
@@ -154,6 +155,9 @@ export const authService = {
       } catch (err) {
         console.warn('Session retrieval error:', err);
       }
+
+      // A live app must not treat a client-controlled demo session as auth.
+      return null;
     }
 
     // Check stored local session
@@ -198,7 +202,7 @@ export const authService = {
           };
         } else {
           // Upsert new profile record
-          await supabase.from('profiles').upsert([
+          const { error: profileError } = await supabase.from('profiles').upsert([
             {
               id: userId,
               role,
@@ -208,6 +212,7 @@ export const authService = {
               institution_or_company: role === 'student' ? 'State University' : role === 'academician' ? 'Research Institute' : 'Corporate Partner'
             }
           ]);
+          if (profileError) throw new Error(profileError.message);
         }
       } catch (err) {
         console.warn('Profile sync error:', err);

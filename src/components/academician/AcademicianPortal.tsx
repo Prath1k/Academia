@@ -12,7 +12,11 @@ import {
   BookmarkPlus
 } from 'lucide-react';
 
-export const AcademicianPortal: React.FC = () => {
+interface Props {
+  currentUserId?: string;
+}
+
+export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
   const [opportunities, setOpportunities] = useState<FacultyOpportunity[]>([]);
   const [collaborations, setCollaborations] = useState<CollaborationInitiative[]>([]);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -38,12 +42,23 @@ export const AcademicianPortal: React.FC = () => {
     setCollaborations(collabs);
   };
 
-  const handleApply = (id: string) => {
+  const handleApply = async (id: string) => {
+    if (currentUserId) {
+      await dataService.applyToFacultyOpportunity(id, currentUserId);
+    }
     setAppliedIds(prev => new Set([...prev, id]));
   };
 
-  const handleSendProposal = (e: React.FormEvent) => {
+  const handleSendProposal = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentUserId) {
+      await dataService.createCollaborationProposal({
+        initiatorId: currentUserId,
+        title: proposalTitle,
+        type: proposalType,
+        description: proposalDesc
+      });
+    }
     setProposalSuccess(true);
     setTimeout(() => {
       setProposalSuccess(false);

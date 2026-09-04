@@ -9,7 +9,11 @@ import {
   X
 } from 'lucide-react';
 
-export const IndustryPortal: React.FC = () => {
+interface Props {
+  currentUserId?: string;
+}
+
+export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [skills, setSkills] = useState<SkillMaster[]>([]);
@@ -44,7 +48,7 @@ export const IndustryPortal: React.FC = () => {
   const handleCreateOpportunity = async (e: React.FormEvent) => {
     e.preventDefault();
     const created = await dataService.createOpportunity({
-      company_id: '22222222-2222-2222-2222-222222220005',
+      company_id: currentUserId || '22222222-2222-2222-2222-222222220005',
       title,
       type,
       domain,
@@ -64,7 +68,8 @@ export const IndustryPortal: React.FC = () => {
     setSelectedSkillIds([]);
   };
 
-  const handleUpdateStatus = (appId: string, newStatus: Application['status']) => {
+  const handleUpdateStatus = async (appId: string, newStatus: Application['status']) => {
+    await dataService.updateApplicationStatus(appId, newStatus);
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a));
   };
 

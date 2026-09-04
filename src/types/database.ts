@@ -63,7 +63,7 @@ export interface AssessmentQuestion {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_option: 'A' | 'B' | 'C' | 'D';
+  correct_option?: 'A' | 'B' | 'C' | 'D';
   explanation?: string;
 }
 

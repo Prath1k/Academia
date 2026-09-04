@@ -123,6 +123,13 @@ CREATE TABLE IF NOT EXISTS public.assessment_submissions (
     attempted_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+-- Client-facing assessment data must never include the answer key.
+CREATE OR REPLACE VIEW public.assessment_questions_public AS
+SELECT id, category, skill_id, question_text, option_a, option_b, option_c, option_d, created_at
+FROM public.assessment_questions;
+
+GRANT SELECT ON public.assessment_questions_public TO authenticated;
+
 -- ====================================================================
 -- 7. Industry Opportunities (Internships, Jobs, Apprenticeships)
 -- ====================================================================
@@ -186,6 +193,15 @@ CREATE TABLE IF NOT EXISTS public.faculty_opportunities (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+CREATE TABLE IF NOT EXISTS public.faculty_applications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    faculty_opportunity_id UUID NOT NULL REFERENCES public.faculty_opportunities(id) ON DELETE CASCADE,
+    academician_profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'submitted',
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    UNIQUE(faculty_opportunity_id, academician_profile_id)
+);
+
 -- ====================================================================
 -- 10. Industry Learning Programs & Certifications
 -- ====================================================================
@@ -218,6 +234,16 @@ CREATE TABLE IF NOT EXISTS public.collaboration_initiatives (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+CREATE TABLE IF NOT EXISTS public.collaboration_proposals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    initiator_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'submitted',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
 -- ====================================================================
 -- 12. Student Digital Portfolios (Verified Credentials, Projects & Reports)
 -- ====================================================================
@@ -247,36 +273,246 @@ ALTER TABLE public.opportunities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.opportunity_skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.faculty_opportunities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.faculty_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.learning_programs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collaboration_initiatives ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.collaboration_proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.digital_portfolio_items ENABLE ROW LEVEL SECURITY;
 
--- Allow read access to public / authenticated users for discoverability
-CREATE POLICY "Public read access for profiles" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "Public read access for skills" ON public.skills_master FOR SELECT USING (true);
-CREATE POLICY "Public read access for student_profiles" ON public.student_profiles FOR SELECT USING (true);
-CREATE POLICY "Public read access for student_skills" ON public.student_skills FOR SELECT USING (true);
-CREATE POLICY "Public read access for assessment_questions" ON public.assessment_questions FOR SELECT USING (true);
-CREATE POLICY "Public read access for assessment_submissions" ON public.assessment_submissions FOR SELECT USING (true);
-CREATE POLICY "Public read access for opportunities" ON public.opportunities FOR SELECT USING (true);
-CREATE POLICY "Public read access for opportunity_skills" ON public.opportunity_skills FOR SELECT USING (true);
-CREATE POLICY "Public read access for applications" ON public.applications FOR SELECT USING (true);
-CREATE POLICY "Public read access for faculty_opportunities" ON public.faculty_opportunities FOR SELECT USING (true);
-CREATE POLICY "Public read access for learning_programs" ON public.learning_programs FOR SELECT USING (true);
-CREATE POLICY "Public read access for collaboration_initiatives" ON public.collaboration_initiatives FOR SELECT USING (true);
-CREATE POLICY "Public read access for digital_portfolio_items" ON public.digital_portfolio_items FOR SELECT USING (true);
+-- RLS helpers and policies. The SQL editor may be rerun safely during setup.
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS user_role
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT role FROM public.profiles WHERE id = auth.uid();
+$$;
 
--- Allow authenticated / insert operations
-CREATE POLICY "Allow all insert for profiles" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for student_profiles" ON public.student_profiles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for student_skills" ON public.student_skills FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for assessment_submissions" ON public.assessment_submissions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for opportunities" ON public.opportunities FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for applications" ON public.applications FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for faculty_opportunities" ON public.faculty_opportunities FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for learning_programs" ON public.learning_programs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for collaboration_initiatives" ON public.collaboration_initiatives FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all insert for digital_portfolio_items" ON public.digital_portfolio_items FOR ALL USING (true) WITH CHECK (true);
+REVOKE ALL ON FUNCTION public.current_user_role() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated;
+
+DROP POLICY IF EXISTS "Public read access for profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Public read access for skills" ON public.skills_master;
+DROP POLICY IF EXISTS "Public read access for student_profiles" ON public.student_profiles;
+DROP POLICY IF EXISTS "Public read access for student_skills" ON public.student_skills;
+DROP POLICY IF EXISTS "Public read access for assessment_questions" ON public.assessment_questions;
+DROP POLICY IF EXISTS "Public read access for assessment_submissions" ON public.assessment_submissions;
+DROP POLICY IF EXISTS "Public read access for opportunities" ON public.opportunities;
+DROP POLICY IF EXISTS "Public read access for opportunity_skills" ON public.opportunity_skills;
+DROP POLICY IF EXISTS "Public read access for applications" ON public.applications;
+DROP POLICY IF EXISTS "Public read access for faculty_opportunities" ON public.faculty_opportunities;
+DROP POLICY IF EXISTS "Public read access for learning_programs" ON public.learning_programs;
+DROP POLICY IF EXISTS "Public read access for collaboration_initiatives" ON public.collaboration_initiatives;
+DROP POLICY IF EXISTS "Public read access for digital_portfolio_items" ON public.digital_portfolio_items;
+DROP POLICY IF EXISTS "Allow all insert for profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow all insert for student_profiles" ON public.student_profiles;
+DROP POLICY IF EXISTS "Allow all insert for student_skills" ON public.student_skills;
+DROP POLICY IF EXISTS "Allow all insert for assessment_submissions" ON public.assessment_submissions;
+DROP POLICY IF EXISTS "Allow all insert for opportunities" ON public.opportunities;
+DROP POLICY IF EXISTS "Allow all insert for applications" ON public.applications;
+DROP POLICY IF EXISTS "Allow all insert for faculty_opportunities" ON public.faculty_opportunities;
+DROP POLICY IF EXISTS "Allow all insert for learning_programs" ON public.learning_programs;
+DROP POLICY IF EXISTS "Allow all insert for collaboration_initiatives" ON public.collaboration_initiatives;
+DROP POLICY IF EXISTS "Allow all insert for digital_portfolio_items" ON public.digital_portfolio_items;
+
+CREATE POLICY "Users can read their own profile" ON public.profiles
+    FOR SELECT TO authenticated USING (id = auth.uid());
+CREATE POLICY "Users can create their own profile" ON public.profiles
+    FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+CREATE POLICY "Users can update their own profile" ON public.profiles
+    FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+CREATE POLICY "Authenticated users can read skills" ON public.skills_master
+    FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Authorized users can read student profiles" ON public.student_profiles
+    FOR SELECT TO authenticated USING (
+        profile_id = auth.uid() OR public.current_user_role() IN ('academician', 'industry', 'institution')
+    );
+CREATE POLICY "Students can create their own student profile" ON public.student_profiles
+    FOR INSERT TO authenticated WITH CHECK (profile_id = auth.uid() AND public.current_user_role() = 'student');
+CREATE POLICY "Students can update their own student profile" ON public.student_profiles
+    FOR UPDATE TO authenticated USING (profile_id = auth.uid()) WITH CHECK (profile_id = auth.uid());
+
+CREATE POLICY "Authorized users can read student skills" ON public.student_skills
+    FOR SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.student_profiles student
+            WHERE student.id = student_profile_id
+                AND (student.profile_id = auth.uid() OR public.current_user_role() IN ('academician', 'industry', 'institution'))
+        )
+    );
+CREATE POLICY "Students can manage their own skills" ON public.student_skills
+    FOR ALL TO authenticated USING (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    ) WITH CHECK (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    );
+
+CREATE POLICY "Authenticated users can read assessment questions" ON public.assessment_questions
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Students can create their own assessment submissions" ON public.assessment_submissions
+    FOR INSERT TO authenticated WITH CHECK (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    );
+CREATE POLICY "Students can read their own assessment submissions" ON public.assessment_submissions
+    FOR SELECT TO authenticated USING (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    );
+
+CREATE OR REPLACE FUNCTION public.grade_assessment(
+    requested_student_profile_id UUID,
+    submitted_answers JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    question_count INT;
+    correct_count INT;
+    percentage INT;
+    submission_id UUID;
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM public.student_profiles
+        WHERE id = requested_student_profile_id AND profile_id = auth.uid()
+    ) THEN
+        RAISE EXCEPTION 'Student profile does not belong to the authenticated user';
+    END IF;
+
+    SELECT COUNT(*)::INT,
+           COUNT(*) FILTER (
+               WHERE submitted_answers ->> id::TEXT = correct_option
+           )::INT
+    INTO question_count, correct_count
+    FROM public.assessment_questions
+    WHERE id::TEXT IN (SELECT jsonb_object_keys(submitted_answers));
+
+    IF question_count = 0 THEN
+        RAISE EXCEPTION 'No valid assessment answers were submitted';
+    END IF;
+
+    percentage := ROUND((correct_count::NUMERIC / question_count) * 100)::INT;
+
+    INSERT INTO public.assessment_submissions (
+        student_profile_id, category, score, total_questions, strengths, gaps, feedback
+    ) VALUES (
+        requested_student_profile_id,
+        'technical',
+        percentage,
+        question_count,
+        CASE WHEN percentage >= 80 THEN ARRAY['Assessment readiness'] ELSE ARRAY[]::TEXT[] END,
+        CASE WHEN percentage < 80 THEN ARRAY['Targeted upskilling'] ELSE ARRAY[]::TEXT[] END,
+        CASE WHEN percentage >= 80 THEN 'Exceptional Industry Readiness' ELSE 'Good foundational grasp with identified upskilling paths.' END
+    ) RETURNING id INTO submission_id;
+
+    RETURN jsonb_build_object(
+        'id', submission_id,
+        'score', percentage,
+        'total_questions', question_count
+    );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.grade_assessment(UUID, JSONB) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.grade_assessment(UUID, JSONB) TO authenticated;
+
+CREATE POLICY "Authenticated users can read active opportunities" ON public.opportunities
+    FOR SELECT TO authenticated USING (is_active = true OR company_id = auth.uid());
+CREATE POLICY "Industry users can create their own opportunities" ON public.opportunities
+    FOR INSERT TO authenticated WITH CHECK (company_id = auth.uid() AND public.current_user_role() = 'industry');
+CREATE POLICY "Industry users can update their own opportunities" ON public.opportunities
+    FOR UPDATE TO authenticated USING (company_id = auth.uid()) WITH CHECK (company_id = auth.uid());
+CREATE POLICY "Industry users can delete their own opportunities" ON public.opportunities
+    FOR DELETE TO authenticated USING (company_id = auth.uid());
+
+CREATE POLICY "Authenticated users can read opportunity skills" ON public.opportunity_skills
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Opportunity owners can manage opportunity skills" ON public.opportunity_skills
+    FOR ALL TO authenticated USING (
+        EXISTS (SELECT 1 FROM public.opportunities WHERE id = opportunity_id AND company_id = auth.uid())
+    ) WITH CHECK (
+        EXISTS (SELECT 1 FROM public.opportunities WHERE id = opportunity_id AND company_id = auth.uid())
+    );
+
+CREATE POLICY "Users can read relevant applications" ON public.applications
+    FOR SELECT TO authenticated USING (
+        student_profile_id IN (SELECT id FROM public.student_profiles WHERE profile_id = auth.uid())
+        OR opportunity_id IN (SELECT id FROM public.opportunities WHERE company_id = auth.uid())
+    );
+CREATE POLICY "Students can create their own applications" ON public.applications
+    FOR INSERT TO authenticated WITH CHECK (
+        student_profile_id IN (SELECT id FROM public.student_profiles WHERE profile_id = auth.uid())
+    );
+CREATE POLICY "Opportunity owners can update applications" ON public.applications
+    FOR UPDATE TO authenticated USING (
+        opportunity_id IN (SELECT id FROM public.opportunities WHERE company_id = auth.uid())
+    ) WITH CHECK (
+        opportunity_id IN (SELECT id FROM public.opportunities WHERE company_id = auth.uid())
+    );
+
+CREATE POLICY "Authenticated users can read faculty opportunities" ON public.faculty_opportunities
+    FOR SELECT TO authenticated USING (is_active = true OR posted_by = auth.uid());
+CREATE POLICY "Authorized users can create faculty opportunities" ON public.faculty_opportunities
+    FOR INSERT TO authenticated WITH CHECK (
+        posted_by = auth.uid() AND public.current_user_role() IN ('academician', 'industry', 'institution')
+    );
+CREATE POLICY "Authors can update faculty opportunities" ON public.faculty_opportunities
+    FOR UPDATE TO authenticated USING (posted_by = auth.uid()) WITH CHECK (posted_by = auth.uid());
+CREATE POLICY "Authors can delete faculty opportunities" ON public.faculty_opportunities
+    FOR DELETE TO authenticated USING (posted_by = auth.uid());
+
+CREATE POLICY "Academicians read own faculty applications" ON public.faculty_applications
+    FOR SELECT TO authenticated USING (academician_profile_id = auth.uid());
+CREATE POLICY "Faculty opportunity owners read applications" ON public.faculty_applications
+    FOR SELECT TO authenticated USING (
+        EXISTS (SELECT 1 FROM public.faculty_opportunities fo WHERE fo.id = faculty_opportunity_id AND fo.posted_by = auth.uid())
+    );
+CREATE POLICY "Academicians create own faculty applications" ON public.faculty_applications
+    FOR INSERT TO authenticated WITH CHECK (
+        academician_profile_id = auth.uid() AND public.current_user_role() = 'academician'
+    );
+
+CREATE POLICY "Authenticated users can read learning programs" ON public.learning_programs
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Industry users can manage their learning programs" ON public.learning_programs
+    FOR ALL TO authenticated USING (company_id = auth.uid() AND public.current_user_role() = 'industry')
+    WITH CHECK (company_id = auth.uid() AND public.current_user_role() = 'industry');
+
+CREATE POLICY "Authenticated users can read collaborations" ON public.collaboration_initiatives
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can create their own collaborations" ON public.collaboration_initiatives
+    FOR INSERT TO authenticated WITH CHECK (initiator_id = auth.uid());
+CREATE POLICY "Initiators can update collaborations" ON public.collaboration_initiatives
+    FOR UPDATE TO authenticated USING (initiator_id = auth.uid()) WITH CHECK (initiator_id = auth.uid());
+CREATE POLICY "Initiators can delete collaborations" ON public.collaboration_initiatives
+    FOR DELETE TO authenticated USING (initiator_id = auth.uid());
+
+CREATE POLICY "Users read own collaboration proposals" ON public.collaboration_proposals
+    FOR SELECT TO authenticated USING (initiator_id = auth.uid());
+CREATE POLICY "Academicians create own collaboration proposals" ON public.collaboration_proposals
+    FOR INSERT TO authenticated WITH CHECK (
+        initiator_id = auth.uid() AND public.current_user_role() = 'academician'
+    );
+
+CREATE POLICY "Users can read relevant portfolio items" ON public.digital_portfolio_items
+    FOR SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.student_profiles student
+            WHERE student.id = student_profile_id
+                AND (student.profile_id = auth.uid() OR public.current_user_role() IN ('academician', 'industry', 'institution'))
+        )
+    );
+CREATE POLICY "Students can manage their own portfolio" ON public.digital_portfolio_items
+    FOR ALL TO authenticated USING (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    ) WITH CHECK (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    );
 
 -- ====================================================================
 -- 14. SEED DATA (Realistic Universal & Priority Ayush Profiles)

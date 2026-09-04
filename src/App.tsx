@@ -34,10 +34,18 @@ export const App: React.FC = () => {
       setCurrentUser(user);
       setCurrentRole(user.role);
     }
-    loadStudents();
+    loadStudents(user?.role === 'student' ? user.id : undefined);
   };
 
-  const loadStudents = async () => {
+  const loadStudents = async (authenticatedProfileId?: string) => {
+    if (authenticatedProfileId) {
+      const profile = await dataService.getStudentProfile(authenticatedProfileId);
+      const list = profile ? [profile] : [];
+      setAllStudents(list);
+      setStudentProfile(profile);
+      return;
+    }
+
     const s1 = await dataService.getStudentProfile('22222222-2222-2222-2222-222222220001');
     const s2 = await dataService.getStudentProfile('22222222-2222-2222-2222-222222220002');
     const list = [s1, s2].filter(Boolean) as StudentProfile[];
@@ -145,8 +153,8 @@ export const App: React.FC = () => {
         {currentRole === 'student' && studentProfile && (
           <StudentPortal student={studentProfile} />
         )}
-        {currentRole === 'academician' && <AcademicianPortal />}
-        {currentRole === 'industry' && <IndustryPortal />}
+        {currentRole === 'academician' && <AcademicianPortal currentUserId={currentUser?.id} />}
+        {currentRole === 'industry' && <IndustryPortal currentUserId={currentUser?.id} />}
         {currentRole === 'institution' && <InstitutionPortal />}
       </main>
 

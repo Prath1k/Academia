@@ -40,43 +40,24 @@ export const SkillAssessmentModal: React.FC<Props> = ({
     if (!selectedOption) return;
 
     if (isLastQuestion) {
-      // Calculate results
-      let correctCount = 0;
       const calculatedStrengths: string[] = [];
       const calculatedGaps: string[] = [];
 
       questions.forEach(q => {
         const studentAns = answers[q.id] || (q.id === currentQ.id ? selectedOption : null);
-        if (studentAns === q.correct_option) {
-          correctCount++;
-          if (q.category === 'technical') calculatedStrengths.push('Technical Logic & Data Processing');
-          else if (q.category === 'domain_specialized') calculatedStrengths.push('Regulatory & GCP Standards');
-          else calculatedStrengths.push('Critical Problem Solving');
-        } else {
-          if (q.category === 'technical') calculatedGaps.push('Advanced API & Framework Caching');
-          else if (q.category === 'domain_specialized') calculatedGaps.push('Chromatographic Quality Protocols');
-          else calculatedGaps.push('Crisis Stakeholder Communication');
-        }
+        if (studentAns) calculatedStrengths.push(q.category === 'technical' ? 'Technical Logic & Data Processing' : q.category === 'domain_specialized' ? 'Regulatory & GCP Standards' : 'Critical Problem Solving');
+        else calculatedGaps.push(q.category === 'technical' ? 'Advanced API & Framework Caching' : q.category === 'domain_specialized' ? 'Chromatographic Quality Protocols' : 'Crisis Stakeholder Communication');
       });
 
-      const percentage = Math.round((correctCount / questions.length) * 100);
+      const finalAnswers = { ...answers, [currentQ.id]: selectedOption };
+      const result = await dataService.gradeAssessment(studentProfileId, finalAnswers);
+      const percentage = result.score;
       setFinalScore(percentage);
       const uniqueStrengths = Array.from(new Set(calculatedStrengths));
       const uniqueGaps = Array.from(new Set(calculatedGaps));
       setStrengths(uniqueStrengths);
       setGaps(uniqueGaps);
       setIsCompleted(true);
-
-      // Save submission to dataService (which inserts to Supabase or local state)
-      await dataService.submitAssessment({
-        student_profile_id: studentProfileId,
-        category: 'technical',
-        score: percentage,
-        total_questions: questions.length,
-        strengths: uniqueStrengths,
-        gaps: uniqueGaps,
-        feedback: percentage >= 80 ? 'Exceptional Industry Readiness' : 'Good foundational grasp with identified upskilling paths.'
-      });
 
       onAssessmentCompleted(percentage, uniqueStrengths, uniqueGaps);
     } else {

@@ -118,11 +118,11 @@ export const dataService = {
   },
 
   async createOpportunity(opp: Omit<Opportunity, 'id'>): Promise<Opportunity> {
-    const newId = `opp-${Date.now()}`;
+    const newId = crypto.randomUUID();
     const newOpp: Opportunity = { ...opp, id: newId };
     
     if (isSupabaseConfigured() && supabase) {
-      await supabase.from('opportunities').insert([{
+      const { error } = await supabase.from('opportunities').insert([{
         id: newId,
         company_id: opp.company_id,
         title: opp.title,
@@ -136,6 +136,7 @@ export const dataService = {
         eligibility: opp.eligibility,
         is_active: true
       }]);
+      if (error) throw new Error(error.message);
     }
     localOpportunities = [newOpp, ...localOpportunities];
     return newOpp;
@@ -191,24 +192,53 @@ export const dataService = {
   // Assessment Questions
   async getAssessmentQuestions(category?: SkillCategory): Promise<AssessmentQuestion[]> {
     if (isSupabaseConfigured() && supabase) {
-      let query = supabase.from('assessment_questions').select('*');
+      let query = supabase.from('assessment_questions_public').select('*');
       if (category) query = query.eq('category', category);
       const { data, error } = await query;
       if (!error && data) return data as AssessmentQuestion[];
+      if (error) throw new Error(error.message);
     }
     if (category) return MOCK_QUESTIONS.filter(q => q.category === category);
     return MOCK_QUESTIONS;
+  },
+
+  async gradeAssessment(
+    studentProfileId: string,
+    answers: Record<string, 'A' | 'B' | 'C' | 'D'>
+  ): Promise<{ score: number; totalQuestions: number }> {
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase.rpc('grade_assessment', {
+        requested_student_profile_id: studentProfileId,
+        submitted_answers: answers
+      });
+      if (error) throw new Error(error.message);
+      return {
+        score: data.score,
+        totalQuestions: data.total_questions
+      };
+    }
+
+    const questions = await this.getAssessmentQuestions();
+    const correctCount = questions.reduce(
+      (count, question) => count + (answers[question.id] === question.correct_option ? 1 : 0),
+      0
+    );
+    return {
+      score: Math.round((correctCount / questions.length) * 100),
+      totalQuestions: questions.length
+    };
   },
 
   // Submit Assessment Result
   async submitAssessment(submission: Omit<AssessmentSubmission, 'id' | 'attempted_at'>): Promise<AssessmentSubmission> {
     const newSubmission: AssessmentSubmission = {
       ...submission,
-      id: `sub-${Date.now()}`,
+      id: crypto.randomUUID(),
       attempted_at: new Date().toISOString()
     };
     if (isSupabaseConfigured() && supabase) {
-      await supabase.from('assessment_submissions').insert([newSubmission]);
+      const { error } = await supabase.from('assessment_submissions').insert([newSubmission]);
+      if (error) throw new Error(error.message);
     }
     return newSubmission;
   },
@@ -233,13 +263,63 @@ export const dataService = {
   async applyToOpportunity(application: Omit<Application, 'id' | 'applied_at'>): Promise<Application> {
     const newApp: Application = {
       ...application,
-      id: `app-${Date.now()}`,
+      id: crypto.randomUUID(),
       applied_at: new Date().toISOString()
     };
     if (isSupabaseConfigured() && supabase) {
-      await supabase.from('applications').insert([newApp]);
+      const { error } = await supabase.from('applications').insert([newApp]);
+      if (error) throw new Error(error.message);
     }
     localApplications = [newApp, ...localApplications];
     return newApp;
+  },
+
+  async updateApplicationStatus(
+    applicationId: string,
+    status: Application['status']
+  ): Promise<void> {
+    if (isSupabaseConfigured() && supabase) {
+      const { error } = await supabase
+        .from('applications')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', applicationId);
+      if (error) throw new Error(error.message);
+    }
+
+    localApplications = localApplications.map(application =>
+      application.id === applicationId ? { ...application, status } : application
+    );
+  },
+
+  async applyToFacultyOpportunity(
+    facultyOpportunityId: string,
+    academicianProfileId: string
+  ): Promise<void> {
+    if (isSupabaseConfigured() && supabase) {
+      const { error } = await supabase.from('faculty_applications').insert([{
+        id: crypto.randomUUID(),
+        faculty_opportunity_id: facultyOpportunityId,
+        academician_profile_id: academicianProfileId
+      }]);
+      if (error) throw new Error(error.message);
+    }
+  },
+
+  async createCollaborationProposal(proposal: {
+    initiatorId: string;
+    title: string;
+    type: string;
+    description: string;
+  }): Promise<void> {
+    if (isSupabaseConfigured() && supabase) {
+      const { error } = await supabase.from('collaboration_proposals').insert([{
+        id: crypto.randomUUID(),
+        initiator_id: proposal.initiatorId,
+        title: proposal.title,
+        type: proposal.type,
+        description: proposal.description
+      }]);
+      if (error) throw new Error(error.message);
+    }
   }
 };
