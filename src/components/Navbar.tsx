@@ -1,12 +1,15 @@
 import React from 'react';
 import { UserRole } from '../types/database';
+import { AuthUser } from '../services/authService';
 import {
   GraduationCap,
   Microscope,
   Building2,
   School,
   Database,
-  ShieldCheck
+  ShieldCheck,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 
@@ -14,12 +17,18 @@ interface Props {
   currentRole: UserRole;
   onRoleChange: (role: UserRole) => void;
   onOpenBackendModal: () => void;
+  currentUser: AuthUser | null;
+  onOpenAuthModal: (role?: UserRole) => void;
+  onSignOut: () => void;
 }
 
 export const Navbar: React.FC<Props> = ({
   currentRole,
   onRoleChange,
-  onOpenBackendModal
+  onOpenBackendModal,
+  currentUser,
+  onOpenAuthModal,
+  onSignOut
 }) => {
   const isLive = isSupabaseConfigured();
 
@@ -31,12 +40,12 @@ export const Navbar: React.FC<Props> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/85 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo & Hackathon Tag */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 shrink-0">
               <GraduationCap className="w-6 h-6" />
             </div>
             <div>
@@ -48,12 +57,12 @@ export const Navbar: React.FC<Props> = ({
                   SIH26044
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">Skill Mapping, Internships & Placement Platform</p>
+              <p className="text-[11px] text-slate-400 hidden sm:block">Skill Mapping, Internships & Placement Platform</p>
             </div>
           </div>
 
-          {/* Role Navigation Pills */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+          {/* Role Navigation Tabs */}
+          <nav className="hidden lg:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
             {roles.map(({ role, label, icon: Icon }) => {
               const active = currentRole === role;
               return (
@@ -73,11 +82,13 @@ export const Navbar: React.FC<Props> = ({
             })}
           </nav>
 
-          {/* Backend Status Badge Button */}
-          <div className="flex items-center gap-3">
+          {/* Right Action Bar */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Backend Status Badge Button */}
             <button
               onClick={onOpenBackendModal}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+              title="Click to check live Supabase tables"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                 isLive
                   ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300 hover:bg-emerald-950/70'
                   : 'bg-slate-900 border-slate-700/80 text-slate-300 hover:bg-slate-800'
@@ -88,20 +99,65 @@ export const Navbar: React.FC<Props> = ({
               ) : (
                 <Database className="w-3.5 h-3.5 text-emerald-400" />
               )}
-              <span className="hidden sm:inline">
-                {isLive ? 'Supabase Live' : 'Backend Engine: Active'}
+              <span className="hidden md:inline">
+                {isLive ? 'Supabase Live' : 'Backend Active'}
               </span>
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
             </button>
+
+            {/* Authentication Button / User Profile */}
+            {currentUser ? (
+              <div className="flex items-center gap-2 pl-1 sm:pl-2 border-l border-slate-800">
+                <div className="flex items-center gap-2">
+                  {currentUser.avatarUrl ? (
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.fullName}
+                      className="w-7 h-7 rounded-full object-cover border border-emerald-500/40"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-slate-800 text-emerald-400 flex items-center justify-center font-bold text-xs border border-slate-700">
+                      {currentUser.fullName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="hidden sm:block text-left">
+                    <p className="text-xs font-semibold text-white leading-tight truncate max-w-[120px]">
+                      {currentUser.fullName}
+                    </p>
+                    <p className="text-[10px] text-emerald-400 capitalize font-medium">
+                      {currentUser.role} Account
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={onSignOut}
+                  title="Sign Out"
+                  className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => onOpenAuthModal(currentRole)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/20 transition-all"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Mobile Role Switcher */}
-      <div className="flex md:hidden overflow-x-auto px-4 py-2 bg-slate-900/80 border-t border-slate-800 gap-1">
+      <div className="flex lg:hidden overflow-x-auto px-4 py-2 bg-slate-900/80 border-t border-slate-800 gap-1">
         {roles.map(({ role, label, icon: Icon }) => (
           <button
             key={role}

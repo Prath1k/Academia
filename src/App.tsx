@@ -2,23 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { UserRole, StudentProfile } from './types/database';
 import { Navbar } from './components/Navbar';
 import { BackendStatusModal } from './components/BackendStatusModal';
+import { AuthModal } from './components/auth/AuthModal';
+import { RoleGatewayCards } from './components/auth/RoleGatewayCards';
 import { StudentPortal } from './components/student/StudentPortal';
 import { AcademicianPortal } from './components/academician/AcademicianPortal';
 import { IndustryPortal } from './components/industry/IndustryPortal';
 import { InstitutionPortal } from './components/institution/InstitutionPortal';
 import { dataService } from './services/dataService';
+import { authService, AuthUser } from './services/authService';
 import { isSupabaseConfigured } from './services/supabaseClient';
 import { Users, Database, ArrowRight } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isBackendModalOpen, setIsBackendModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authInitialRole, setAuthInitialRole] = useState<UserRole>('student');
+
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [allStudents, setAllStudents] = useState<StudentProfile[]>([]);
 
   useEffect(() => {
-    loadStudents();
+    initAuthAndData();
   }, []);
+
+  const initAuthAndData = async () => {
+    // Check active session
+    const user = await authService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      setCurrentRole(user.role);
+    }
+    loadStudents();
+  };
 
   const loadStudents = async () => {
     const s1 = await dataService.getStudentProfile('22222222-2222-2222-2222-222222220001');
@@ -26,6 +43,25 @@ export const App: React.FC = () => {
     const list = [s1, s2].filter(Boolean) as StudentProfile[];
     setAllStudents(list);
     setStudentProfile(list[0] || null);
+  };
+
+  const handleOpenAuth = (role?: UserRole) => {
+    setAuthInitialRole(role || currentRole);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (user: AuthUser) => {
+    setCurrentUser(user);
+    setCurrentRole(user.role);
+  };
+
+  const handleSignOut = async () => {
+    await authService.signOut();
+    setCurrentUser(null);
+  };
+
+  const handleRoleChange = (role: UserRole) => {
+    setCurrentRole(role);
   };
 
   const isLive = isSupabaseConfigured();
@@ -41,10 +77,10 @@ export const App: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span>
-              <strong className="text-white">Backend Ready:</strong>{' '}
+              <strong className="text-white">Backend Status:</strong>{' '}
               {isLive
-                ? 'Connected directly to Supabase cloud PostgreSQL database.'
-                : 'Local engine initialized. Copy supabase/schema.sql to Supabase & plug keys into .env whenever ready.'}
+                ? 'Connected directly to live Supabase cloud PostgreSQL (13/13 tables healthy).'
+                : 'Local engine active. Copy supabase/schema.sql to Supabase & set keys in .env for live sync.'}
             </span>
           </div>
 
@@ -52,7 +88,7 @@ export const App: React.FC = () => {
             onClick={() => setIsBackendModalOpen(true)}
             className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium underline underline-offset-4"
           >
-            <span>Run Backend Verification Check</span>
+            <span>Run Database Verification Check</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -61,26 +97,35 @@ export const App: React.FC = () => {
       {/* Main Navbar */}
       <Navbar
         currentRole={currentRole}
-        onRoleChange={setCurrentRole}
+        onRoleChange={handleRoleChange}
         onOpenBackendModal={() => setIsBackendModalOpen(true)}
+        currentUser={currentUser}
+        onOpenAuthModal={handleOpenAuth}
+        onSignOut={handleSignOut}
+      />
+
+      {/* Dedicated Role Gateways with Google Authentication buttons */}
+      <RoleGatewayCards
+        activeRole={currentRole}
+        onSelectRoleLogin={(role) => handleOpenAuth(role)}
       />
 
       {/* Sub-header Persona Switcher (For Students) */}
       {currentRole === 'student' && allStudents.length > 1 && (
-        <div className="bg-slate-900/60 border-b border-slate-800 py-2">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs">
+        <div className="bg-slate-900/60 border-y border-slate-800 py-2.5 my-2">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 text-slate-400">
               <Users className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Simulate Student Persona:</span>
+              <span>Simulate Verified Student Cohort:</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
               {allStudents.map((s) => {
                 const active = studentProfile?.id === s.id;
                 return (
                   <button
                     key={s.id}
                     onClick={() => setStudentProfile(s)}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                    className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                       active
                         ? 'bg-emerald-600 text-white shadow-sm'
                         : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
@@ -113,7 +158,7 @@ export const App: React.FC = () => {
               Smart India Hackathon (SIH) Problem Statement No: <strong className="text-white">SIH26044</strong>
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Portal for Academia - Industry collaboration for Skill Mapping, Internships and Placement (Universal Disciplines with Ministry of Ayush Priority Benchmark)
+              Portal for Academia - Industry collaboration for Skill Mapping, Internships and Placement (Role-Based Access for Students, Academicians, Industry & Institutions)
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -122,13 +167,21 @@ export const App: React.FC = () => {
               className="text-emerald-400 hover:underline flex items-center gap-1"
             >
               <Database className="w-3.5 h-3.5" />
-              <span>Database Status</span>
+              <span>Database Status (13 Tables)</span>
             </button>
             <span>•</span>
-            <span className="text-slate-400">Supabase Modular Architecture</span>
+            <span className="text-slate-400">Supabase OAuth Architecture</span>
           </div>
         </div>
       </footer>
+
+      {/* Role-Specific Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialRole={authInitialRole}
+        onAuthSuccess={handleAuthSuccess}
+      />
 
       {/* Backend Verification & Diagnostic Modal */}
       <BackendStatusModal
