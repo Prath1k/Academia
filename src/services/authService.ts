@@ -95,7 +95,7 @@ export const authService = {
           const authUser: AuthUser = {
             id: data.user.id,
             email,
-            role,
+            role: 'student',
             fullName,
             institutionOrCompany
           };
@@ -103,7 +103,9 @@ export const authService = {
           const { error: profileError } = await supabase.from('profiles').upsert([
             {
               id: data.user.id,
-              role,
+              role: 'student',
+              requested_role: role,
+              verification_status: 'pending',
               full_name: fullName,
               email,
               institution_or_company: institutionOrCompany
@@ -214,7 +216,9 @@ export const authService = {
           const { error: profileError } = await supabase.from('profiles').upsert([
             {
               id: userId,
-              role,
+              role: 'student',
+              requested_role: role,
+              verification_status: 'pending',
               full_name: defaultName,
               email,
               avatar_url: avatarUrl,

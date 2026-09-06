@@ -59,6 +59,7 @@ const TABLES = [
 
 async function verify() {
   let successCount = 0;
+  let populatedCount = 0;
   console.log('\nVerifying database tables & permissions:\n');
 
   for (const tbl of TABLES) {
@@ -75,6 +76,7 @@ async function verify() {
       } else {
         successCount++;
         const rowCount = count ?? (data ? data.length : 0);
+        if (rowCount > 0) populatedCount++;
         console.log(`✅ [OK]   ${tbl.padEnd(26)} - ${rowCount} rows detected (${latency}ms)`);
       }
     } catch (err) {
@@ -85,6 +87,11 @@ async function verify() {
   console.log('\n------------------------------------------------------');
   if (successCount === TABLES.length) {
     console.log(`🎉 SUCCESS: All ${TABLES.length} tables verified and healthy!`);
+    if (populatedCount < TABLES.length - 2) {
+      console.log('⚠️  WARNING: The schema is present but most tables are empty.');
+      console.log('Run the seed section at the end of supabase/schema.sql in the linked project, then run this check again.');
+      process.exitCode = 2;
+    }
   } else {
     console.log(`⚠️  PARTIAL: ${successCount}/${TABLES.length} tables responded.`);
     console.log('Please ensure supabase/schema.sql was fully executed in the Supabase SQL editor.');

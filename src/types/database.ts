@@ -79,6 +79,28 @@ export interface AssessmentSubmission {
   attempted_at: string;
 }
 
+export interface AssessmentResult {
+  score: number;
+  totalQuestions: number;
+  categoryScores: Record<string, number>;
+  strengths: string[];
+  gaps: string[];
+}
+
+export interface InstitutionAnalytics {
+  totalStudents: number;
+  completedAssessments: number;
+  activePlacements: number;
+  activeIndustryPartners: number;
+  skillGaps: Array<{
+    skill: string;
+    industryDemand: number;
+    cohortMastery: number;
+    deficit: number;
+    status: 'Critical Deficit' | 'Moderate Gap' | 'Satisfactory';
+  }>;
+}
+
 export interface Opportunity {
   id: string;
   company_id: string;

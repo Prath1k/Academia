@@ -10,6 +10,8 @@ import {
   DigitalPortfolioItem,
   AssessmentQuestion,
   AssessmentSubmission,
+  AssessmentResult,
+  InstitutionAnalytics,
   Application,
   UserRole,
   SkillCategory
@@ -138,6 +140,21 @@ export const dataService = {
         is_active: true
       }]);
       if (error) throw new Error(error.message);
+
+      if (opp.required_skills?.length) {
+        const { error: skillsError } = await supabase.from('opportunity_skills').insert(
+          opp.required_skills.map(requiredSkill => ({
+            opportunity_id: newId,
+            skill_id: requiredSkill.skill.id,
+            is_mandatory: requiredSkill.is_mandatory,
+            weight: requiredSkill.weight
+          }))
+        );
+        if (skillsError) {
+          await supabase.from('opportunities').delete().eq('id', newId);
+          throw new Error(`Opportunity skills could not be saved: ${skillsError.message}`);
+        }
+      }
     }
     localOpportunities = [newOpp, ...localOpportunities];
     return newOpp;
@@ -206,7 +223,7 @@ export const dataService = {
   async gradeAssessment(
     studentProfileId: string,
     answers: Record<string, 'A' | 'B' | 'C' | 'D'>
-  ): Promise<{ score: number; totalQuestions: number }> {
+  ): Promise<AssessmentResult> {
     if (isSupabaseConfigured() && supabase) {
       const { data, error } = await supabase.rpc('grade_assessment', {
         requested_student_profile_id: studentProfileId,
@@ -215,18 +232,33 @@ export const dataService = {
       if (error) throw new Error(error.message);
       return {
         score: data.score,
-        totalQuestions: data.total_questions
+        totalQuestions: data.total_questions,
+        categoryScores: data.category_scores || {},
+        strengths: data.strengths || [],
+        gaps: data.gaps || []
       };
     }
 
     const questions = await this.getAssessmentQuestions();
-    const correctCount = questions.reduce(
-      (count, question) => count + (answers[question.id] === question.correct_option ? 1 : 0),
-      0
+    const correctCount = questions.filter(question => answers[question.id] === question.correct_option).length;
+    const categoryTotals = new Map<string, { correct: number; total: number }>();
+    questions.forEach(question => {
+      const current = categoryTotals.get(question.category) || { correct: 0, total: 0 };
+      current.total += 1;
+      if (answers[question.id] === question.correct_option) current.correct += 1;
+      categoryTotals.set(question.category, current);
+    });
+    const categoryScores = Object.fromEntries(
+      Array.from(categoryTotals.entries()).map(([category, value]) => [category, Math.round((value.correct / value.total) * 100)])
     );
+    const strengths = Array.from(categoryTotals.keys()).filter(category => categoryScores[category] >= 70).map(category => category.replace('_', ' '));
+    const gaps = Array.from(categoryTotals.keys()).filter(category => categoryScores[category] < 70).map(category => category.replace('_', ' '));
     return {
       score: Math.round((correctCount / questions.length) * 100),
-      totalQuestions: questions.length
+      totalQuestions: questions.length,
+      categoryScores,
+      strengths,
+      gaps
     };
   },
 
@@ -242,6 +274,43 @@ export const dataService = {
       if (error) throw new Error(error.message);
     }
     return newSubmission;
+  },
+
+  async getInstitutionAnalytics(): Promise<InstitutionAnalytics> {
+    const [students, opportunities, applications, skills] = await Promise.all([
+      isSupabaseConfigured() && supabase
+        ? supabase.from('student_profiles').select('*, skills:student_skills(*, skill:skills_master(*))')
+        : Promise.resolve({ data: localStudentProfiles, error: null }),
+      this.getOpportunities(),
+      this.getApplications(),
+      this.getSkills()
+    ]);
+    const studentRows = (students.data || localStudentProfiles) as StudentProfile[];
+    const demand = new Map<string, number>();
+    opportunities.forEach(opportunity => opportunity.required_skills?.forEach(required => {
+      demand.set(required.skill.id, (demand.get(required.skill.id) || 0) + 1);
+    }));
+    const skillGaps = skills.map(skill => {
+      const demandCount = demand.get(skill.id) || 0;
+      const industryDemand = opportunities.length ? Math.round((demandCount / opportunities.length) * 100) : 0;
+      const mastered = studentRows.filter(student => student.skills?.some(studentSkill => studentSkill.skill_id === skill.id && studentSkill.proficiency_level >= 3)).length;
+      const cohortMastery = studentRows.length ? Math.round((mastered / studentRows.length) * 100) : 0;
+      const deficit = Math.max(industryDemand - cohortMastery, 0);
+      return {
+        skill: skill.name,
+        industryDemand,
+        cohortMastery,
+        deficit,
+        status: deficit >= 35 ? 'Critical Deficit' as const : deficit >= 20 ? 'Moderate Gap' as const : 'Satisfactory' as const
+      };
+    }).filter(row => row.industryDemand > 0 || row.cohortMastery > 0).sort((a, b) => b.deficit - a.deficit).slice(0, 8);
+    return {
+      totalStudents: studentRows.length,
+      completedAssessments: studentRows.filter(student => student.overall_readiness_score > 0).length,
+      activePlacements: applications.filter(application => ['shortlisted', 'interview_scheduled', 'offered'].includes(application.status)).length,
+      activeIndustryPartners: new Set(opportunities.map(opportunity => opportunity.company_id)).size,
+      skillGaps
+    };
   },
 
   // Applications

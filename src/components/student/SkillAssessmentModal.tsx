@@ -40,26 +40,15 @@ export const SkillAssessmentModal: React.FC<Props> = ({
     if (!selectedOption) return;
 
     if (isLastQuestion) {
-      const calculatedStrengths: string[] = [];
-      const calculatedGaps: string[] = [];
-
-      questions.forEach(q => {
-        const studentAns = answers[q.id] || (q.id === currentQ.id ? selectedOption : null);
-        if (studentAns) calculatedStrengths.push(q.category === 'technical' ? 'Technical Logic & Data Processing' : q.category === 'domain_specialized' ? 'Regulatory & GCP Standards' : 'Critical Problem Solving');
-        else calculatedGaps.push(q.category === 'technical' ? 'Advanced API & Framework Caching' : q.category === 'domain_specialized' ? 'Chromatographic Quality Protocols' : 'Crisis Stakeholder Communication');
-      });
-
       const finalAnswers = { ...answers, [currentQ.id]: selectedOption };
       const result = await dataService.gradeAssessment(studentProfileId, finalAnswers);
       const percentage = result.score;
       setFinalScore(percentage);
-      const uniqueStrengths = Array.from(new Set(calculatedStrengths));
-      const uniqueGaps = Array.from(new Set(calculatedGaps));
-      setStrengths(uniqueStrengths);
-      setGaps(uniqueGaps);
+      setStrengths(result.strengths);
+      setGaps(result.gaps);
       setIsCompleted(true);
 
-      onAssessmentCompleted(percentage, uniqueStrengths, uniqueGaps);
+      onAssessmentCompleted(percentage, result.strengths, result.gaps);
     } else {
       setCurrentIndex(prev => prev + 1);
       const nextQ = questions[currentIndex + 1];

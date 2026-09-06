@@ -44,6 +44,8 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     role user_role NOT NULL DEFAULT 'student',
+    requested_role user_role NOT NULL DEFAULT 'student',
+    verification_status TEXT NOT NULL DEFAULT 'approved' CHECK (verification_status IN ('pending', 'approved', 'rejected')),
     full_name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     avatar_url TEXT,
@@ -53,6 +55,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     phone TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS requested_role user_role NOT NULL DEFAULT 'student';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verification_status TEXT NOT NULL DEFAULT 'approved';
 
 -- ====================================================================
 -- 4. Skills Master Taxonomy
@@ -287,8 +292,32 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-    SELECT role FROM public.profiles WHERE id = auth.uid();
+    SELECT CASE WHEN verification_status = 'approved' THEN role ELSE 'student'::user_role END
+    FROM public.profiles WHERE id = auth.uid();
 $$;
+
+CREATE OR REPLACE FUNCTION public.prevent_profile_role_escalation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF auth.uid() IS NOT NULL AND (
+        NEW.role IS DISTINCT FROM OLD.role OR
+        NEW.requested_role IS DISTINCT FROM OLD.requested_role OR
+        NEW.verification_status IS DISTINCT FROM OLD.verification_status
+    ) THEN
+        RAISE EXCEPTION 'Profile role and verification fields are managed by administrators';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS protect_profile_role_escalation ON public.profiles;
+CREATE TRIGGER protect_profile_role_escalation
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_role_escalation();
 
 REVOKE ALL ON FUNCTION public.current_user_role() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated;
@@ -298,6 +327,7 @@ DROP POLICY IF EXISTS "Public read access for skills" ON public.skills_master;
 DROP POLICY IF EXISTS "Public read access for student_profiles" ON public.student_profiles;
 DROP POLICY IF EXISTS "Public read access for student_skills" ON public.student_skills;
 DROP POLICY IF EXISTS "Public read access for assessment_questions" ON public.assessment_questions;
+DROP POLICY IF EXISTS "Authenticated users can read assessment questions" ON public.assessment_questions;
 DROP POLICY IF EXISTS "Public read access for assessment_submissions" ON public.assessment_submissions;
 DROP POLICY IF EXISTS "Public read access for opportunities" ON public.opportunities;
 DROP POLICY IF EXISTS "Public read access for opportunity_skills" ON public.opportunity_skills;
@@ -320,7 +350,7 @@ DROP POLICY IF EXISTS "Allow all insert for digital_portfolio_items" ON public.d
 CREATE POLICY "Users can read their own profile" ON public.profiles
     FOR SELECT TO authenticated USING (id = auth.uid());
 CREATE POLICY "Users can create their own profile" ON public.profiles
-    FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+    FOR INSERT TO authenticated WITH CHECK (id = auth.uid() AND role = 'student' AND verification_status = 'pending');
 CREATE POLICY "Users can update their own profile" ON public.profiles
     FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
@@ -351,8 +381,6 @@ CREATE POLICY "Students can manage their own skills" ON public.student_skills
         EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
     );
 
-CREATE POLICY "Authenticated users can read assessment questions" ON public.assessment_questions
-    FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Students can create their own assessment submissions" ON public.assessment_submissions
     FOR INSERT TO authenticated WITH CHECK (
         EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
@@ -376,6 +404,9 @@ DECLARE
     correct_count INT;
     percentage INT;
     submission_id UUID;
+    category_scores JSONB;
+    strengths TEXT[];
+    gaps TEXT[];
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM public.student_profiles
@@ -398,6 +429,36 @@ BEGIN
 
     percentage := ROUND((correct_count::NUMERIC / question_count) * 100)::INT;
 
+    SELECT COALESCE(jsonb_object_agg(category, score), '{}'::JSONB)
+    INTO category_scores
+    FROM (
+        SELECT q.category::TEXT AS category,
+               ROUND((COUNT(*) FILTER (WHERE submitted_answers ->> q.id::TEXT = q.correct_option)::NUMERIC / COUNT(*)) * 100)::INT AS score
+        FROM public.assessment_questions q
+        WHERE q.id::TEXT IN (SELECT jsonb_object_keys(submitted_answers))
+        GROUP BY q.category
+    ) category_results;
+
+    SELECT COALESCE(array_agg(category), ARRAY[]::TEXT[])
+    INTO strengths
+    FROM (
+        SELECT q.category::TEXT AS category
+        FROM public.assessment_questions q
+        WHERE q.id::TEXT IN (SELECT jsonb_object_keys(submitted_answers))
+        GROUP BY q.category
+        HAVING ROUND((COUNT(*) FILTER (WHERE submitted_answers ->> q.id::TEXT = q.correct_option)::NUMERIC / COUNT(*)) * 100) >= 70
+    ) strong_categories;
+
+    SELECT COALESCE(array_agg(category), ARRAY[]::TEXT[])
+    INTO gaps
+    FROM (
+        SELECT q.category::TEXT AS category
+        FROM public.assessment_questions q
+        WHERE q.id::TEXT IN (SELECT jsonb_object_keys(submitted_answers))
+        GROUP BY q.category
+        HAVING ROUND((COUNT(*) FILTER (WHERE submitted_answers ->> q.id::TEXT = q.correct_option)::NUMERIC / COUNT(*)) * 100) < 70
+    ) weak_categories;
+
     INSERT INTO public.assessment_submissions (
         student_profile_id, category, score, total_questions, strengths, gaps, feedback
     ) VALUES (
@@ -405,21 +466,29 @@ BEGIN
         'technical',
         percentage,
         question_count,
-        CASE WHEN percentage >= 80 THEN ARRAY['Assessment readiness'] ELSE ARRAY[]::TEXT[] END,
-        CASE WHEN percentage < 80 THEN ARRAY['Targeted upskilling'] ELSE ARRAY[]::TEXT[] END,
+        strengths,
+        gaps,
         CASE WHEN percentage >= 80 THEN 'Exceptional Industry Readiness' ELSE 'Good foundational grasp with identified upskilling paths.' END
     ) RETURNING id INTO submission_id;
+
+    UPDATE public.student_profiles
+    SET overall_readiness_score = percentage
+    WHERE id = requested_student_profile_id;
 
     RETURN jsonb_build_object(
         'id', submission_id,
         'score', percentage,
-        'total_questions', question_count
+        'total_questions', question_count,
+        'category_scores', category_scores,
+        'strengths', strengths,
+        'gaps', gaps
     );
 END;
 $$;
 
 REVOKE ALL ON FUNCTION public.grade_assessment(UUID, JSONB) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.grade_assessment(UUID, JSONB) TO authenticated;
+REVOKE ALL ON public.assessment_questions FROM authenticated;
 
 CREATE POLICY "Authenticated users can read active opportunities" ON public.opportunities
     FOR SELECT TO authenticated USING (is_active = true OR company_id = auth.uid());

@@ -48,6 +48,7 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  const [readinessScore, setReadinessScore] = useState(student.overall_readiness_score);
 
   useEffect(() => {
     loadData();
@@ -85,16 +86,16 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
   };
 
   const handleAssessmentCompleted = (score: number, _strengths: string[], _gaps: string[]) => {
-    student.overall_readiness_score = score;
+    setReadinessScore(score);
     loadData();
   };
 
+  const competency = skillEngine.calculateCompetencyVectors(student);
   const radarData = [
-    { label: 'Technical', value: 88 },
-    { label: 'Domain Core', value: student.major.includes('Ayurved') ? 92 : 84 },
-    { label: 'Soft Skills', value: 85 },
-    { label: 'Problem Solving', value: 80 },
-    { label: 'Ethics & GCP', value: 90 }
+    { label: 'Technical', value: competency.technicalScore },
+    { label: 'Domain Core', value: competency.domainSpecialization },
+    { label: 'Soft Skills', value: competency.softSkillsScore },
+    { label: 'Readiness', value: readinessScore }
   ];
 
   const rankedOpps = skillEngine.rankOpportunities(student, opportunities).filter(opp => {
@@ -187,7 +188,7 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
             <RadarChart data={radarData} size={220} />
             <div className="mt-2 text-center">
               <span className="text-xs text-slate-400">Industry Readiness Score: </span>
-              <strong className="text-emerald-400 text-sm font-bold">{student.overall_readiness_score}%</strong>
+              <strong className="text-emerald-400 text-sm font-bold">{readinessScore}%</strong>
             </div>
           </div>
         </div>
@@ -262,6 +263,11 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
 
           {/* Cards Grid */}
           <div className="grid md:grid-cols-2 gap-4">
+            {!rankedOpps.length && (
+              <div className="md:col-span-2 rounded-2xl border border-amber-800/50 bg-amber-950/20 p-6 text-sm text-amber-200">
+                No live opportunities match this view yet. Try another discipline or check back after an industry partner publishes a role.
+              </div>
+            )}
             {rankedOpps.map((opp) => {
               const hasApplied = appliedIds.has(opp.id);
               return (

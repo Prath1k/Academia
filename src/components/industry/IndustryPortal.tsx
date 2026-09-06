@@ -19,6 +19,9 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
   const [skills, setSkills] = useState<SkillMaster[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [skillWeights, setSkillWeights] = useState<Record<string, number>>({});
+  const [formError, setFormError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -47,25 +50,42 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
 
   const handleCreateOpportunity = async (e: React.FormEvent) => {
     e.preventDefault();
-    const created = await dataService.createOpportunity({
-      company_id: currentUserId || '22222222-2222-2222-2222-222222220005',
-      title,
-      type,
-      domain,
-      location,
-      stipend_or_salary: stipend,
-      duration,
-      openings: 3,
-      description,
-      eligibility,
-      is_active: true
-    });
-
-    setOpportunities(prev => [created, ...prev]);
-    setShowCreateModal(false);
-    setTitle('');
-    setDescription('');
-    setSelectedSkillIds([]);
+    if (!selectedSkillIds.length) {
+      setFormError('Select at least one required skill before publishing.');
+      return;
+    }
+    setFormError('');
+    setIsSaving(true);
+    try {
+      const created = await dataService.createOpportunity({
+        company_id: currentUserId || '22222222-2222-2222-2222-222222220005',
+        title,
+        type,
+        domain,
+        location,
+        stipend_or_salary: stipend,
+        duration,
+        openings: 3,
+        description,
+        eligibility,
+        is_active: true,
+        required_skills: selectedSkillIds.map(skillId => ({
+          skill: skills.find(skill => skill.id === skillId)!,
+          is_mandatory: true,
+          weight: skillWeights[skillId] || 1
+        }))
+      });
+      setOpportunities(prev => [created, ...prev]);
+      setShowCreateModal(false);
+      setTitle('');
+      setDescription('');
+      setSelectedSkillIds([]);
+      setSkillWeights({});
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Opportunity could not be saved.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUpdateStatus = async (appId: string, newStatus: Application['status']) => {
@@ -112,12 +132,17 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
           <div className="flex items-center justify-between">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-blue-400" />
-              <span>Active Company Postings ({opportunities.length})</span>
+              <span>Active Company Postings ({opportunities.filter(opp => !currentUserId || opp.company_id === currentUserId).length})</span>
             </h3>
           </div>
 
           <div className="space-y-3">
-            {opportunities.map((opp) => (
+            {!opportunities.filter(opp => !currentUserId || opp.company_id === currentUserId).length && (
+              <div className="rounded-2xl border border-amber-800/50 bg-amber-950/20 p-5 text-sm text-amber-200">
+                No active postings are available for this company yet. Publish a skill-weighted opportunity to start receiving applications.
+              </div>
+            )}
+            {opportunities.filter(opp => !currentUserId || opp.company_id === currentUserId).map((opp) => (
               <div key={opp.id} className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -303,6 +328,7 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
                           setSelectedSkillIds(prev => 
                             isSelected ? prev.filter(id => id !== sk.id) : [...prev, sk.id]
                           );
+                          setSkillWeights(prev => ({ ...prev, [sk.id]: prev[sk.id] || 1 }));
                         }}
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
                           isSelected
@@ -315,6 +341,29 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
                     );
                   })}
                 </div>
+                {selectedSkillIds.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {selectedSkillIds.map(skillId => {
+                      const skill = skills.find(item => item.id === skillId);
+                      return skill ? (
+                        <label key={skillId} className="flex items-center justify-between gap-3 text-[11px] text-slate-300">
+                          <span>{skill.name} weight</span>
+                          <select
+                            value={skillWeights[skillId] || 1}
+                            onChange={event => setSkillWeights(prev => ({ ...prev, [skillId]: Number(event.target.value) }))}
+                            className="rounded-lg bg-slate-950 border border-slate-800 px-2 py-1 text-slate-200"
+                          >
+                            <option value="1">1x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                            <option value="3">3x</option>
+                          </select>
+                        </label>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+                {formError && <p className="mt-2 text-xs text-rose-400">{formError}</p>}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
@@ -327,9 +376,10 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors"
+                  disabled={isSaving}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold transition-colors"
                 >
-                  Publish Opportunity
+                  {isSaving ? 'Saving...' : 'Publish Opportunity'}
                 </button>
               </div>
             </form>

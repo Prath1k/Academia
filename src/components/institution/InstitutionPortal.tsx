@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { InstitutionAnalytics } from '../../types/database';
+import { dataService } from '../../services/dataService';
 import {
   School,
   TrendingUp,
@@ -6,21 +8,19 @@ import {
 } from 'lucide-react';
 
 export const InstitutionPortal: React.FC = () => {
-  // Cohort Skill Gap Breakdown for Academic Curricula Alignment
-  const skillGapMetrics = [
-    { skill: 'Good Clinical Practice (GCP)', industryDemand: 86, cohortMastery: 42, deficit: 44, status: 'Critical Deficit' },
-    { skill: 'Herbal Formulation Quality Control', industryDemand: 78, cohortMastery: 51, deficit: 27, status: 'Moderate Gap' },
-    { skill: 'Python Data Analysis & Pipelines', industryDemand: 92, cohortMastery: 74, deficit: 18, status: 'Satisfactory' },
-    { skill: 'Healthcare Informatics & EHR', industryDemand: 80, cohortMastery: 38, deficit: 42, status: 'Critical Deficit' },
-    { skill: 'Executive Cross-Disciplinary Presentation', industryDemand: 75, cohortMastery: 60, deficit: 15, status: 'Satisfactory' }
-  ];
+  const [analytics, setAnalytics] = useState<InstitutionAnalytics | null>(null);
 
-  const placementStats = [
-    { title: 'Total Registered Students', value: '1,420', change: '+12% this year' },
-    { title: 'Completed Skill Assessments', value: '1,180', change: '83% cohort completion' },
-    { title: 'Active Internship Placements', value: '462', change: '+28% conversion' },
-    { title: 'Active Industry MoUs', value: '38', change: 'Across Pharma, Tech & Ayush' }
-  ];
+  useEffect(() => {
+    dataService.getInstitutionAnalytics().then(setAnalytics);
+  }, []);
+
+  const skillGapMetrics = analytics?.skillGaps || [];
+  const placementStats = analytics ? [
+    { title: 'Total Registered Students', value: analytics.totalStudents.toLocaleString(), change: 'Live student profiles' },
+    { title: 'Completed Skill Assessments', value: analytics.completedAssessments.toLocaleString(), change: 'Profiles with readiness scores' },
+    { title: 'Active Internship Placements', value: analytics.activePlacements.toLocaleString(), change: 'Shortlisted, interview, or offered' },
+    { title: 'Active Industry Partners', value: analytics.activeIndustryPartners.toLocaleString(), change: 'Partners with active opportunities' }
+  ] : [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -70,7 +70,19 @@ export const InstitutionPortal: React.FC = () => {
               Identifies competency gaps where industry job criteria significantly outpace student cohort syllabus coverage.
             </p>
           </div>
-          <button className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold self-start sm:self-auto transition-colors">
+          <button
+            onClick={() => {
+              const rows = [['Skill', 'Industry demand', 'Cohort mastery', 'Deficit', 'Status'], ...skillGapMetrics.map(row => [row.skill, `${row.industryDemand}%`, `${row.cohortMastery}%`, `${row.deficit}%`, row.status])];
+              const csv = rows.map(row => row.map(value => `"${value.replace(/"/g, '""')}"`).join(',')).join('\n');
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+              link.download = 'curriculum-modernization-report.csv';
+              link.click();
+              URL.revokeObjectURL(link.href);
+            }}
+            disabled={!analytics}
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-semibold self-start sm:self-auto transition-colors"
+          >
             Export Curriculum Modernization Report
           </button>
         </div>
@@ -87,6 +99,9 @@ export const InstitutionPortal: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
+              {skillGapMetrics.length === 0 && (
+                <tr><td colSpan={5} className="py-8 px-4 text-center text-slate-400">No live opportunity requirements or assessment data is available yet.</td></tr>
+              )}
               {skillGapMetrics.map((row) => (
                 <tr key={row.skill} className="hover:bg-slate-900/40 transition-colors">
                   <td className="py-3.5 px-4 font-semibold text-white">{row.skill}</td>
