@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { InstitutionAnalytics } from '../../types/database';
 import { dataService } from '../../services/dataService';
+import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
 import {
   School,
   TrendingUp,
@@ -9,10 +10,15 @@ import {
 
 export const InstitutionPortal: React.FC = () => {
   const [analytics, setAnalytics] = useState<InstitutionAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    dataService.getInstitutionAnalytics().then(setAnalytics);
+    dataService.getInstitutionAnalytics().then(setAnalytics).finally(() => setIsLoading(false));
   }, []);
+
+  if (isLoading) {
+    return <WorkspaceSkeleton variant="institution" />;
+  }
 
   const skillGapMetrics = analytics?.skillGaps || [];
   const placementStats = analytics ? [

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Opportunity, Application, SkillMaster } from '../../types/database';
 import { dataService } from '../../services/dataService';
+import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
 import {
   Building2,
   PlusCircle,
@@ -17,6 +18,7 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [skills, setSkills] = useState<SkillMaster[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [skillWeights, setSkillWeights] = useState<Record<string, number>>({});
@@ -38,14 +40,19 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
   }, []);
 
   const loadData = async () => {
-    const [opps, apps, sks] = await Promise.all([
-      dataService.getOpportunities(),
-      dataService.getApplications(),
-      dataService.getSkills()
-    ]);
-    setOpportunities(opps);
-    setApplications(apps);
-    setSkills(sks);
+    setIsLoading(true);
+    try {
+      const [opps, apps, sks] = await Promise.all([
+        dataService.getOpportunities(),
+        dataService.getApplications(),
+        dataService.getSkills()
+      ]);
+      setOpportunities(opps);
+      setApplications(apps);
+      setSkills(sks);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCreateOpportunity = async (e: React.FormEvent) => {
@@ -92,6 +99,10 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
     await dataService.updateApplicationStatus(appId, newStatus);
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a));
   };
+
+  if (isLoading) {
+    return <WorkspaceSkeleton variant="industry" />;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

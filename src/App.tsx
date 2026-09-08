@@ -9,6 +9,7 @@ import { StudentPortal } from './components/student/StudentPortal';
 import { AcademicianPortal } from './components/academician/AcademicianPortal';
 import { IndustryPortal } from './components/industry/IndustryPortal';
 import { InstitutionPortal } from './components/institution/InstitutionPortal';
+import { LoadingScreen } from './components/LoadingScreen';
 import { dataService } from './services/dataService';
 import { authService, AuthUser } from './services/authService';
 import { MOCK_STUDENT_PROFILES } from './data/mockFallbackData';
@@ -21,6 +22,7 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [authInitialRole, setAuthInitialRole] = useState<UserRole>('student');
+  const [isAppReady, setIsAppReady] = useState(false);
 
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [allStudents, setAllStudents] = useState<StudentProfile[]>([]);
@@ -30,14 +32,22 @@ export const App: React.FC = () => {
   }, []);
 
   const initAuthAndData = async () => {
-    // Check active session
-    const user = await authService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-      setCurrentRole(user.role);
-    }
-    if (user?.role === 'student') {
-      loadStudents(user.id);
+    const startedAt = Date.now();
+    try {
+      const user = await authService.getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        setCurrentRole(user.role);
+      }
+      if (user?.role === 'student') {
+        await loadStudents(user.id);
+      }
+    } finally {
+      const remainingTime = 3000 - (Date.now() - startedAt);
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+      setIsAppReady(true);
     }
   };
 
@@ -86,6 +96,10 @@ export const App: React.FC = () => {
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
   };
+
+  if (!isAppReady) {
+    return <LoadingScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-blue-600 selection:text-white">

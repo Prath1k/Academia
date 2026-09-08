@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FacultyOpportunity, CollaborationInitiative } from '../../types/database';
 import { dataService } from '../../services/dataService';
+import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
 import {
   Microscope,
   Building2,
@@ -19,6 +20,7 @@ interface Props {
 export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
   const [opportunities, setOpportunities] = useState<FacultyOpportunity[]>([]);
   const [collaborations, setCollaborations] = useState<CollaborationInitiative[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [showProposalModal, setShowProposalModal] = useState(false);
@@ -34,12 +36,17 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
   }, []);
 
   const loadFacultyData = async () => {
-    const [opps, collabs] = await Promise.all([
-      dataService.getFacultyOpportunities(),
-      dataService.getCollaborations()
-    ]);
-    setOpportunities(opps);
-    setCollaborations(collabs);
+    setIsLoading(true);
+    try {
+      const [opps, collabs] = await Promise.all([
+        dataService.getFacultyOpportunities(),
+        dataService.getCollaborations()
+      ]);
+      setOpportunities(opps);
+      setCollaborations(collabs);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleApply = async (id: string) => {
@@ -72,6 +79,10 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
     if (activeFilter === 'all') return true;
     return opp.type === activeFilter;
   });
+
+  if (isLoading) {
+    return <WorkspaceSkeleton variant="academician" />;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

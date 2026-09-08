@@ -5,11 +5,13 @@ import {
   LearningProgram,
   DigitalPortfolioItem,
   Application,
-  AssessmentQuestion
+  AssessmentQuestion,
+  CredentialVerification
 } from '../../types/database';
 import { RadarChart } from '../RadarChart';
 import { SkillAssessmentModal } from './SkillAssessmentModal';
 import { SkillGapModal } from './SkillGapModal';
+import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
 import { dataService } from '../../services/dataService';
 import { skillEngine } from '../../services/skillEngine';
 import {
@@ -25,7 +27,9 @@ import {
   MapPin,
   Building2,
   FileCheck,
-  TrendingUp
+  TrendingUp,
+  ShieldCheck,
+  Stethoscope
 } from 'lucide-react';
 
 interface Props {
@@ -38,9 +42,11 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
   const [learnings, setLearnings] = useState<LearningProgram[]>([]);
   const [portfolioItems, setPortfolioItems] = useState<DigitalPortfolioItem[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [verifications, setVerifications] = useState<CredentialVerification[]>([]);
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'opportunities' | 'portfolio' | 'applications' | 'learning'>('opportunities');
+  const [activeTab, setActiveTab] = useState<'opportunities' | 'verification' | 'portfolio' | 'applications' | 'learning'>('opportunities');
   const [searchQuery, setSearchQuery] = useState('');
   const [domainFilter, setDomainFilter] = useState('all');
 
@@ -55,19 +61,26 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
   }, [student.id]);
 
   const loadData = async () => {
-    const [opps, lrn, port, apps, qns] = await Promise.all([
-      dataService.getOpportunities(),
-      dataService.getLearningPrograms(),
-      dataService.getDigitalPortfolio(student.id),
-      dataService.getApplications(student.id),
-      dataService.getAssessmentQuestions()
-    ]);
-    setOpportunities(opps);
-    setLearnings(lrn);
-    setPortfolioItems(port);
-    setApplications(apps);
-    setQuestions(qns);
-    setAppliedIds(new Set(apps.map(a => a.opportunity_id)));
+    setIsLoading(true);
+    try {
+      const [opps, lrn, port, apps, qns, creds] = await Promise.all([
+        dataService.getOpportunities(),
+        dataService.getLearningPrograms(),
+        dataService.getDigitalPortfolio(student.id),
+        dataService.getApplications(student.id),
+        dataService.getAssessmentQuestions(),
+        dataService.getCredentialVerifications(student.id)
+      ]);
+      setOpportunities(opps);
+      setLearnings(lrn);
+      setPortfolioItems(port);
+      setApplications(apps);
+      setQuestions(qns);
+      setVerifications(creds);
+      setAppliedIds(new Set(apps.map(a => a.opportunity_id)));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleApply = async (opp: Opportunity) => {
@@ -111,6 +124,18 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
     return true;
   });
 
+  const healthcareDomainLabel = student.healthcare_domain === 'ayurveda'
+    ? 'Ayurveda'
+    : student.healthcare_domain === 'healthcare_technology'
+      ? 'Healthcare Technology'
+      : student.healthcare_domain === 'modern_medicine'
+        ? 'Modern Medicine'
+        : student.healthcare_domain?.replace('_', ' ');
+
+  if (isLoading) {
+    return <WorkspaceSkeleton variant="student" />;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Top Profile & Career Radar Hero Card */}
@@ -141,6 +166,27 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
                 {student.profile?.institution_or_company}
               </p>
             </div>
+
+            {student.healthcare_domain && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/30 p-3">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
+                    <Stethoscope className="h-3.5 w-3.5" /> Healthcare pathway
+                  </div>
+                  <p className="mt-1 text-sm font-semibold capitalize text-white">{healthcareDomainLabel}</p>
+                </div>
+                <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Specialization</div>
+                  <p className="mt-1 truncate text-sm font-semibold text-white">{student.specialization}</p>
+                </div>
+                <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> Profile trust
+                  </div>
+                  <p className="mt-1 text-sm font-semibold capitalize text-white">{student.verification_status?.replace('_', ' ')}</p>
+                </div>
+              </div>
+            )}
 
             {/* Verified Skills Pills */}
             <div className="space-y-1.5">
@@ -199,6 +245,7 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
         <div className="flex items-center gap-2">
           {[
             { id: 'opportunities', label: 'Recommended Internships & Jobs', count: rankedOpps.length, icon: Briefcase },
+            { id: 'verification', label: 'Verification Center', count: verifications.length, icon: ShieldCheck },
             { id: 'portfolio', label: 'Student Digital Portfolio', count: portfolioItems.length, icon: Award },
             { id: 'applications', label: 'Application Pipeline', count: applications.length, icon: FileCheck },
             { id: 'learning', label: 'Industry Learning Programs', count: learnings.length, icon: BookOpen }
@@ -354,6 +401,43 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Verification Center */}
+      {activeTab === 'verification' && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+              <div>
+                <h2 className="text-base font-bold text-white">Evidence that employers can trust</h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">Connect approved issuers, upload a certificate reference, or request faculty and hospital review. Unsupported issuers stay clearly marked for manual review.</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {verifications.map((credential) => (
+              <div key={credential.id} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{credential.credential_type}</p>
+                    <h3 className="mt-1 text-sm font-bold text-white">{credential.title}</h3>
+                    <p className="mt-1 text-xs text-slate-400">{credential.issuer_name}</p>
+                  </div>
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold capitalize text-emerald-300">{credential.status.replace('_', ' ')}</span>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3 text-[11px] text-slate-400">
+                  <span>Source: {credential.source_system.replace('_', ' ')}</span>
+                  <span>{credential.credential_reference}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/50 p-5 text-center">
+            <p className="text-sm font-semibold text-white">Add another credential</p>
+            <p className="mt-1 text-xs text-slate-400">DigiLocker/NAD and issuer API connections become available after approved partner access.</p>
           </div>
         </div>
       )}
