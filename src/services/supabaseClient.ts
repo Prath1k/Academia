@@ -8,10 +8,13 @@ export const isSupabaseConfigured = (): boolean => {
   return (
     typeof supabaseUrl === 'string' &&
     supabaseUrl.trim().length > 0 &&
+    supabaseUrl.startsWith('https://') &&
     !supabaseUrl.includes('your-project-id') &&
     typeof supabaseAnonKey === 'string' &&
     supabaseAnonKey.trim().length > 0 &&
-    !supabaseAnonKey.includes('your-supabase-anon-key')
+    !supabaseAnonKey.includes('your-supabase-anon-key') &&
+    !supabaseAnonKey.includes('service_role') &&
+    !supabaseAnonKey.startsWith('sb_secret_')
   );
 };
 

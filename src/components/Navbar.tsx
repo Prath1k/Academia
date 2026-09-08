@@ -56,8 +56,8 @@ export const Navbar: React.FC<Props> = ({
           </button>
 
           {/* Role Navigation Tabs */}
-          {currentUser ? <nav className="hidden lg:flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
-            {roles.map(({ role, label, icon: Icon }) => {
+          {currentUser ? <nav className="hidden lg:flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm" aria-label="Current workspace">
+            {roles.filter(item => item.role === currentUser.role).map(({ role, label, icon: Icon }) => {
               const active = currentRole === role;
               return (
                 <button
@@ -131,8 +131,8 @@ export const Navbar: React.FC<Props> = ({
       </div>
 
       {/* Mobile Role Switcher */}
-      {currentUser && <div className="flex lg:hidden overflow-x-auto px-4 py-2 bg-white border-t border-slate-200 gap-1">
-        {roles.map(({ role, label, icon: Icon }) => (
+      {currentUser && <div className="flex lg:hidden overflow-x-auto px-4 py-2 bg-white border-t border-slate-200 gap-1" aria-label="Current workspace">
+        {roles.filter(item => item.role === currentUser.role).map(({ role, label, icon: Icon }) => (
           <button
             key={role}
             onClick={() => onRoleChange(role)}

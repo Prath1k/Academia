@@ -14,6 +14,7 @@ import { SkillGapModal } from './SkillGapModal';
 import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
 import { dataService } from '../../services/dataService';
 import { skillEngine } from '../../services/skillEngine';
+import { isSafeExternalUrl } from '../../services/security';
 import {
   Sparkles,
   Search,
@@ -558,14 +559,14 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
 
                 <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400">{lrn.enrollment_count} Enrolled</span>
-                  <a
+                  {isSafeExternalUrl(lrn.link_url) && <a
                     href={lrn.link_url}
                     target="_blank"
                     rel="noreferrer"
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors"
                   >
                     Enroll Now
-                  </a>
+                  </a>}
                 </div>
               </div>
             ))}

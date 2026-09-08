@@ -92,6 +92,10 @@ scripts/
 - New self-registered non-student roles remain pending until approved in the database.
 - Opportunity skills are saved separately from opportunity records and protected by owner policies.
 - Use private Supabase Storage buckets and signed URLs before adding production document uploads.
+- `public/_headers` contains CSP, framing, referrer, permissions, and MIME-sniffing protections. Confirm the chosen static host serves this file; otherwise configure the equivalent response headers at the CDN or reverse proxy.
+- Supabase `anon` keys are intended for browser use and are constrained by RLS. Never put a `service_role` key, database password, OAuth client secret, or other privileged credential in `VITE_*` variables or the frontend bundle. Rotate any privileged credential immediately if it has ever been exposed.
+- Demo authentication is available only in development or when `VITE_ALLOW_DEMO_AUTH=true`; keep that variable false or unset in production.
+- Supabase Auth/PostgREST provide the backend boundary for this client-only app. Add an edge function/API gateway and WAF controls for production rate limiting, audit logging, abuse detection, and any privileged operation.
 
 ## Privacy and Compliance Checklist
 

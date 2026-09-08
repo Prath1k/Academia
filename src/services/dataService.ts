@@ -8,6 +8,7 @@ import {
   LearningProgram,
   CollaborationInitiative,
   DigitalPortfolioItem,
+  CredentialVerification,
   AssessmentQuestion,
   AssessmentSubmission,
   AssessmentResult,
@@ -25,9 +26,11 @@ import {
   MOCK_LEARNING_PROGRAMS,
   MOCK_COLLABORATIONS,
   MOCK_PORTFOLIO_ITEMS,
+  MOCK_CREDENTIAL_VERIFICATIONS,
   MOCK_QUESTIONS,
   MOCK_APPLICATIONS
 } from '../data/mockFallbackData';
+import { normalizeText } from './security';
 
 // In-memory state when running local / mock mode so mutations (e.g. creating opportunity, taking test, applying) persist during the session
 let localOpportunities = [...MOCK_OPPORTUNITIES];
@@ -122,7 +125,16 @@ export const dataService = {
 
   async createOpportunity(opp: Omit<Opportunity, 'id'>): Promise<Opportunity> {
     const newId = crypto.randomUUID();
-    const newOpp: Opportunity = { ...opp, id: newId };
+    const newOpp: Opportunity = {
+      ...opp,
+      id: newId,
+      title: normalizeText(opp.title, 180),
+      location: normalizeText(opp.location, 180),
+      stipend_or_salary: opp.stipend_or_salary ? normalizeText(opp.stipend_or_salary, 120) : undefined,
+      duration: opp.duration ? normalizeText(opp.duration, 120) : undefined,
+      description: normalizeText(opp.description, 4000),
+      eligibility: opp.eligibility ? normalizeText(opp.eligibility, 2000) : undefined
+    };
     
     if (isSupabaseConfigured() && supabase) {
       const { error } = await supabase.from('opportunities').insert([{
@@ -205,6 +217,18 @@ export const dataService = {
       if (!error && data) return data as DigitalPortfolioItem[];
     }
     return MOCK_PORTFOLIO_ITEMS.filter(p => p.student_profile_id === studentProfileId);
+  },
+
+  async getCredentialVerifications(studentProfileId: string): Promise<CredentialVerification[]> {
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase
+        .from('credential_verifications')
+        .select('*')
+        .eq('student_profile_id', studentProfileId)
+        .order('created_at', { ascending: false });
+      if (!error && data) return data as CredentialVerification[];
+    }
+    return MOCK_CREDENTIAL_VERIFICATIONS.filter(item => item.student_profile_id === studentProfileId);
   },
 
   // Assessment Questions
@@ -381,6 +405,12 @@ export const dataService = {
     type: string;
     description: string;
   }): Promise<void> {
+    proposal = {
+      ...proposal,
+      title: normalizeText(proposal.title, 180),
+      type: normalizeText(proposal.type, 80),
+      description: normalizeText(proposal.description, 4000)
+    };
     if (isSupabaseConfigured() && supabase) {
       const { error } = await supabase.from('collaboration_proposals').insert([{
         id: crypto.randomUUID(),

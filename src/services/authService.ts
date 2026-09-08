@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { UserRole } from '../types/database';
 import { MOCK_PROFILES } from '../data/mockFallbackData';
+import { isDemoAuthEnabled, normalizeEmail, normalizeText } from './security';
 
 const PENDING_ROLE_KEY = 'academia_pending_auth_role';
 const ACTIVE_SESSION_USER_KEY = 'academia_active_session_user';
@@ -40,15 +41,18 @@ export const authService = {
       } catch (err: unknown) {
         return { error: (err as Error).message };
       }
-    } else {
+    } else if (isDemoAuthEnabled()) {
       // If running without live Google OAuth keys yet, simulate a smooth role login
       this.simulateDemoLogin(role);
       return {};
     }
+    return { error: 'Authentication is not configured. Contact the site administrator.' };
   },
 
   // 2. Email & Password Sign In
   async signInWithEmail(email: string, pass: string, role: UserRole): Promise<{ user?: AuthUser; error?: string }> {
+    email = normalizeEmail(email);
+    if (pass.length < 8) return { error: 'Password must be at least 8 characters.' };
     if (isSupabaseConfigured() && supabase) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -65,8 +69,9 @@ export const authService = {
         return { error: (err as Error).message };
       }
     }
-    // Fallback demo login
-    return this.simulateDemoLogin(role, email);
+    return isDemoAuthEnabled()
+      ? this.simulateDemoLogin(role, email)
+      : { error: 'Authentication is not configured. Contact the site administrator.' };
   },
 
   // 3. Email Sign Up
@@ -77,6 +82,10 @@ export const authService = {
     fullName: string,
     institutionOrCompany: string
   ): Promise<{ user?: AuthUser; error?: string; message?: string }> {
+    email = normalizeEmail(email);
+    fullName = normalizeText(fullName, 160);
+    institutionOrCompany = normalizeText(institutionOrCompany, 240);
+    if (pass.length < 8) return { error: 'Password must be at least 8 characters.' };
     if (isSupabaseConfigured() && supabase) {
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -119,7 +128,9 @@ export const authService = {
         return { error: (err as Error).message };
       }
     }
-    return this.simulateDemoLogin(role, email, fullName, institutionOrCompany);
+    return isDemoAuthEnabled()
+      ? this.simulateDemoLogin(role, email, fullName, institutionOrCompany)
+      : { error: 'Authentication is not configured. Contact the site administrator.' };
   },
 
   // 4. Sign Out
@@ -258,11 +269,11 @@ export const authService = {
       const { data, error } = await supabase
         .from('profiles')
         .update({
-          full_name: updates.fullName,
-          institution_or_company: updates.institutionOrCompany,
-          department: updates.department,
-          bio: updates.bio,
-          phone: updates.phone
+          full_name: normalizeText(updates.fullName, 160),
+          institution_or_company: normalizeText(updates.institutionOrCompany, 240),
+          department: normalizeText(updates.department, 160),
+          bio: normalizeText(updates.bio, 2000),
+          phone: normalizeText(updates.phone, 40)
         })
         .eq('id', userId)
         .select('*')
@@ -272,7 +283,7 @@ export const authService = {
         id: data.id,
         email: data.email,
         role: data.role,
-        fullName: data.full_name,
+          fullName: data.full_name,
         avatarUrl: data.avatar_url,
         institutionOrCompany: data.institution_or_company,
         department: data.department,

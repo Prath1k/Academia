@@ -97,7 +97,9 @@ export const App: React.FC = () => {
   };
 
   const handleRoleChange = (role: UserRole) => {
-    setCurrentRole(role);
+    if (currentUser && role === currentUser.role) {
+      setCurrentRole(role);
+    }
   };
 
   const handleOpenLegal = (page: LegalPageType) => {

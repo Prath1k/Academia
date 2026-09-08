@@ -180,6 +180,29 @@ CREATE TABLE IF NOT EXISTS public.applications (
     UNIQUE(opportunity_id, student_profile_id)
 );
 
+CREATE OR REPLACE FUNCTION public.prevent_application_tampering()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    IF NEW.id IS DISTINCT FROM OLD.id
+        OR NEW.opportunity_id IS DISTINCT FROM OLD.opportunity_id
+        OR NEW.student_profile_id IS DISTINCT FROM OLD.student_profile_id
+        OR NEW.match_score IS DISTINCT FROM OLD.match_score
+        OR NEW.applied_at IS DISTINCT FROM OLD.applied_at THEN
+        RAISE EXCEPTION 'Application identity and match fields are immutable';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS protect_application_fields ON public.applications;
+CREATE TRIGGER protect_application_fields
+    BEFORE UPDATE ON public.applications
+    FOR EACH ROW EXECUTE FUNCTION public.prevent_application_tampering();
+
 -- ====================================================================
 -- 9. Dedicated Portal for Academicians (Faculty Internships, FDPs, Research)
 -- ====================================================================
@@ -304,6 +327,9 @@ SET search_path = public
 AS $$
 BEGIN
     IF auth.uid() IS NOT NULL AND (
+        NEW.id IS DISTINCT FROM OLD.id OR
+        NEW.email IS DISTINCT FROM OLD.email OR
+        NEW.created_at IS DISTINCT FROM OLD.created_at OR
         NEW.role IS DISTINCT FROM OLD.role OR
         NEW.requested_role IS DISTINCT FROM OLD.requested_role OR
         NEW.verification_status IS DISTINCT FROM OLD.verification_status
@@ -340,6 +366,7 @@ DROP POLICY IF EXISTS "Allow all insert for profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow all insert for student_profiles" ON public.student_profiles;
 DROP POLICY IF EXISTS "Allow all insert for student_skills" ON public.student_skills;
 DROP POLICY IF EXISTS "Allow all insert for assessment_submissions" ON public.assessment_submissions;
+DROP POLICY IF EXISTS "Students can create their own assessment submissions" ON public.assessment_submissions;
 DROP POLICY IF EXISTS "Allow all insert for opportunities" ON public.opportunities;
 DROP POLICY IF EXISTS "Allow all insert for applications" ON public.applications;
 DROP POLICY IF EXISTS "Allow all insert for faculty_opportunities" ON public.faculty_opportunities;
@@ -381,10 +408,6 @@ CREATE POLICY "Students can manage their own skills" ON public.student_skills
         EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
     );
 
-CREATE POLICY "Students can create their own assessment submissions" ON public.assessment_submissions
-    FOR INSERT TO authenticated WITH CHECK (
-        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
-    );
 CREATE POLICY "Students can read their own assessment submissions" ON public.assessment_submissions
     FOR SELECT TO authenticated USING (
         EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
@@ -408,6 +431,18 @@ DECLARE
     strengths TEXT[];
     gaps TEXT[];
 BEGIN
+    IF jsonb_object_length(submitted_answers) > 100 THEN
+        RAISE EXCEPTION 'Assessment submission is too large';
+    END IF;
+
+    IF (
+        SELECT COUNT(*) FROM public.assessment_submissions
+        WHERE student_profile_id = requested_student_profile_id
+          AND attempted_at > timezone('utc'::text, now()) - INTERVAL '1 minute'
+    ) >= 5 THEN
+        RAISE EXCEPTION 'Assessment submission rate limit exceeded';
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM public.student_profiles
         WHERE id = requested_student_profile_id AND profile_id = auth.uid()
@@ -488,24 +523,26 @@ $$;
 
 REVOKE ALL ON FUNCTION public.grade_assessment(UUID, JSONB) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.grade_assessment(UUID, JSONB) TO authenticated;
-REVOKE ALL ON public.assessment_questions FROM authenticated;
+REVOKE ALL ON public.assessment_questions FROM anon, authenticated;
 
 CREATE POLICY "Authenticated users can read active opportunities" ON public.opportunities
     FOR SELECT TO authenticated USING (is_active = true OR company_id = auth.uid());
 CREATE POLICY "Industry users can create their own opportunities" ON public.opportunities
     FOR INSERT TO authenticated WITH CHECK (company_id = auth.uid() AND public.current_user_role() = 'industry');
 CREATE POLICY "Industry users can update their own opportunities" ON public.opportunities
-    FOR UPDATE TO authenticated USING (company_id = auth.uid()) WITH CHECK (company_id = auth.uid());
+    FOR UPDATE TO authenticated USING (company_id = auth.uid() AND public.current_user_role() = 'industry') WITH CHECK (company_id = auth.uid() AND public.current_user_role() = 'industry');
 CREATE POLICY "Industry users can delete their own opportunities" ON public.opportunities
-    FOR DELETE TO authenticated USING (company_id = auth.uid());
+    FOR DELETE TO authenticated USING (company_id = auth.uid() AND public.current_user_role() = 'industry');
 
 CREATE POLICY "Authenticated users can read opportunity skills" ON public.opportunity_skills
     FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Opportunity owners can manage opportunity skills" ON public.opportunity_skills
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.opportunities WHERE id = opportunity_id AND company_id = auth.uid())
+        public.current_user_role() = 'industry'
+        AND EXISTS (SELECT 1 FROM public.opportunities WHERE id = opportunity_id AND company_id = auth.uid())
     ) WITH CHECK (
-        EXISTS (SELECT 1 FROM public.opportunities WHERE id = opportunity_id AND company_id = auth.uid())
+        public.current_user_role() = 'industry'
+        AND EXISTS (SELECT 1 FROM public.opportunities WHERE id = opportunity_id AND company_id = auth.uid())
     );
 
 CREATE POLICY "Users can read relevant applications" ON public.applications
@@ -515,13 +552,17 @@ CREATE POLICY "Users can read relevant applications" ON public.applications
     );
 CREATE POLICY "Students can create their own applications" ON public.applications
     FOR INSERT TO authenticated WITH CHECK (
-        student_profile_id IN (SELECT id FROM public.student_profiles WHERE profile_id = auth.uid())
+        public.current_user_role() = 'student'
+        AND student_profile_id IN (SELECT id FROM public.student_profiles WHERE profile_id = auth.uid())
+        AND EXISTS (SELECT 1 FROM public.opportunities WHERE id = opportunity_id AND is_active = true)
     );
 CREATE POLICY "Opportunity owners can update applications" ON public.applications
     FOR UPDATE TO authenticated USING (
-        opportunity_id IN (SELECT id FROM public.opportunities WHERE company_id = auth.uid())
+        public.current_user_role() = 'industry'
+        AND opportunity_id IN (SELECT id FROM public.opportunities WHERE company_id = auth.uid())
     ) WITH CHECK (
-        opportunity_id IN (SELECT id FROM public.opportunities WHERE company_id = auth.uid())
+        public.current_user_role() = 'industry'
+        AND opportunity_id IN (SELECT id FROM public.opportunities WHERE company_id = auth.uid())
     );
 
 CREATE POLICY "Authenticated users can read faculty opportunities" ON public.faculty_opportunities
@@ -555,7 +596,7 @@ CREATE POLICY "Industry users can manage their learning programs" ON public.lear
 CREATE POLICY "Authenticated users can read collaborations" ON public.collaboration_initiatives
     FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users can create their own collaborations" ON public.collaboration_initiatives
-    FOR INSERT TO authenticated WITH CHECK (initiator_id = auth.uid());
+    FOR INSERT TO authenticated WITH CHECK (initiator_id = auth.uid() AND public.current_user_role() IN ('academician', 'industry', 'institution'));
 CREATE POLICY "Initiators can update collaborations" ON public.collaboration_initiatives
     FOR UPDATE TO authenticated USING (initiator_id = auth.uid()) WITH CHECK (initiator_id = auth.uid());
 CREATE POLICY "Initiators can delete collaborations" ON public.collaboration_initiatives
