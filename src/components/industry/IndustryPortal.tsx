@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Opportunity, Application, SkillMaster } from '../../types/database';
 import { dataService } from '../../services/dataService';
 import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
+import { AnalyticsStatCard, BarChart, ChartDatum, DonutChart } from '../AnalyticsCharts';
 import {
+  Activity,
+  BarChart3,
   Building2,
+  Gauge,
   PlusCircle,
   Users,
   Briefcase,
@@ -100,6 +104,32 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a));
   };
 
+  const companyOpportunities = opportunities.filter(opp => !currentUserId || opp.company_id === currentUserId);
+  const companyOpportunityIds = new Set(companyOpportunities.map(opp => opp.id));
+  const companyApplications = applications.filter(app => !currentUserId || companyOpportunityIds.has(app.opportunity_id));
+  const averageMatch = companyApplications.length
+    ? Math.round(companyApplications.reduce((sum, application) => sum + application.match_score, 0) / companyApplications.length)
+    : 0;
+  const postingMix: ChartDatum[] = ['internship', 'job', 'apprenticeship', 'live_project']
+    .map(type => ({ label: type.replace('_', ' '), value: companyOpportunities.filter(opp => opp.type === type).length }))
+    .filter(item => item.value > 0);
+  const applicationPipeline: ChartDatum[] = [
+    { label: 'Applied', value: companyApplications.filter(app => app.status === 'applied').length, color: '#2563eb' },
+    { label: 'Under review', value: companyApplications.filter(app => app.status === 'under_review').length, color: '#8b5cf6' },
+    { label: 'Shortlisted', value: companyApplications.filter(app => app.status === 'shortlisted').length, color: '#10b981' },
+    { label: 'Interview scheduled', value: companyApplications.filter(app => app.status === 'interview_scheduled').length, color: '#f59e0b' },
+    { label: 'Offered', value: companyApplications.filter(app => app.status === 'offered').length, color: '#14b8a6' },
+    { label: 'Rejected', value: companyApplications.filter(app => app.status === 'rejected').length, color: '#f43f5e' }
+  ].filter(item => item.value > 0);
+  const skillDemandMap = new Map<string, number>();
+  companyOpportunities.forEach(opportunity => opportunity.required_skills?.forEach(required => {
+    skillDemandMap.set(required.skill.name, (skillDemandMap.get(required.skill.name) || 0) + 1);
+  }));
+  const skillDemand: ChartDatum[] = Array.from(skillDemandMap.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([label, value]) => ({ label, value, color: '#0f766e' }));
+
   if (isLoading) {
     return <WorkspaceSkeleton variant="industry" />;
   }
@@ -135,6 +165,48 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
           </button>
         </div>
       </div>
+
+      {/* Hiring Analytics */}
+      <section className="space-y-4" aria-labelledby="industry-analytics-heading">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">Hiring intelligence</p>
+            <h2 id="industry-analytics-heading" className="mt-1 text-xl font-extrabold tracking-tight text-slate-950">Your hiring activity at a glance</h2>
+          </div>
+          <p className="text-xs text-slate-500">Based on {companyOpportunities.length} posting{companyOpportunities.length === 1 ? '' : 's'} and {companyApplications.length} application{companyApplications.length === 1 ? '' : 's'}.</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AnalyticsStatCard label="Active postings" value={companyOpportunities.length.toLocaleString()} detail="Open roles in your workspace" tone="blue" />
+          <AnalyticsStatCard label="Applications" value={companyApplications.length.toLocaleString()} detail="Candidates in your pipeline" tone="emerald" />
+          <AnalyticsStatCard label="Average match" value={`${averageMatch}%`} detail="Skill-weighted candidate fit" tone="amber" />
+          <AnalyticsStatCard label="Shortlisted" value={companyApplications.filter(app => app.status === 'shortlisted').length.toLocaleString()} detail="Candidates ready for next step" tone="rose" />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div><h3 className="flex items-center gap-2 text-base font-bold text-slate-950"><BarChart3 className="h-4 w-4 text-blue-600" />Posting mix</h3><p className="mt-1 text-xs text-slate-500">How your open roles are distributed.</p></div>
+              <span className="rounded-lg bg-blue-50 p-2 text-blue-600"><Activity className="h-4 w-4" /></span>
+            </div>
+            <div className="mt-6"><BarChart data={postingMix} max={Math.max(...postingMix.map(item => item.value), 1)} /></div>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div><h3 className="flex items-center gap-2 text-base font-bold text-slate-950"><Gauge className="h-4 w-4 text-emerald-600" />Application pipeline</h3><p className="mt-1 text-xs text-slate-500">A transparent view of candidate movement.</p></div>
+            </div>
+            <div className="mt-5"><DonutChart data={applicationPipeline} /></div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div><h3 className="text-base font-bold text-slate-950">Most requested skills</h3><p className="mt-1 text-xs text-slate-500">Skills appearing most often in your required matching criteria.</p></div>
+            <p className="text-xs font-semibold text-teal-700">{skillDemand.length ? `${skillDemand[0].label} leads demand` : 'Add required skills to see demand'}</p>
+          </div>
+          <div className="mt-5 max-w-2xl"><BarChart data={skillDemand} max={Math.max(...skillDemand.map(item => item.value), 1)} suffix=" role" /></div>
+        </div>
+      </section>
 
       {/* Grid: Posted Roles & Active Applicants */}
       <div className="grid lg:grid-cols-3 gap-8">

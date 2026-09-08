@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { InstitutionAnalytics } from '../../types/database';
 import { dataService } from '../../services/dataService';
 import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
+import { AnalyticsStatCard, BarChart, ChartDatum, ComparisonBars, DonutChart } from '../AnalyticsCharts';
 import {
+  BarChart3,
+  ClipboardCheck,
   School,
+  Target,
   TrendingUp,
   AlertTriangle
 } from 'lucide-react';
@@ -27,6 +31,19 @@ export const InstitutionPortal: React.FC = () => {
     { title: 'Active Internship Placements', value: analytics.activePlacements.toLocaleString(), change: 'Shortlisted, interview, or offered' },
     { title: 'Active Industry Partners', value: analytics.activeIndustryPartners.toLocaleString(), change: 'Partners with active opportunities' }
   ] : [];
+  const completionRate = analytics?.totalStudents
+    ? Math.round((analytics.completedAssessments / analytics.totalStudents) * 100)
+    : 0;
+  const skillGapSeverity: ChartDatum[] = analytics ? [
+    { label: 'Critical deficit', value: analytics.skillGaps.filter(row => row.status === 'Critical Deficit').length, color: '#f43f5e' },
+    { label: 'Moderate gap', value: analytics.skillGaps.filter(row => row.status === 'Moderate Gap').length, color: '#f59e0b' },
+    { label: 'Satisfactory', value: analytics.skillGaps.filter(row => row.status === 'Satisfactory').length, color: '#10b981' }
+  ].filter(item => item.value > 0) : [];
+  const comparisonData = analytics?.skillGaps.slice(0, 6).map(row => ({
+    label: row.skill,
+    first: row.industryDemand,
+    second: row.cohortMastery
+  })) || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -49,6 +66,45 @@ export const InstitutionPortal: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Cohort Analytics */}
+      <section className="space-y-4" aria-labelledby="institution-analytics-heading">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">Cohort intelligence</p>
+            <h2 id="institution-analytics-heading" className="mt-1 text-xl font-extrabold tracking-tight text-slate-950">Readiness signals for better decisions</h2>
+          </div>
+          <p className="text-xs text-slate-500">A visual summary of student readiness and curriculum pressure points.</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AnalyticsStatCard label="Assessment completion" value={`${completionRate}%`} detail={`${analytics?.completedAssessments || 0} of ${analytics?.totalStudents || 0} students`} tone="blue" />
+          <AnalyticsStatCard label="Placement activity" value={(analytics?.activePlacements || 0).toLocaleString()} detail="Shortlisted, interview, or offered" tone="emerald" />
+          <AnalyticsStatCard label="Critical gaps" value={(analytics?.skillGaps.filter(row => row.status === 'Critical Deficit').length || 0).toLocaleString()} detail="Priority curriculum signals" tone="rose" />
+          <AnalyticsStatCard label="Industry partners" value={(analytics?.activeIndustryPartners || 0).toLocaleString()} detail="Partners with active demand" tone="amber" />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+            <div><h3 className="flex items-center gap-2 text-base font-bold text-slate-950"><ClipboardCheck className="h-4 w-4 text-blue-600" />Assessment coverage</h3><p className="mt-1 text-xs text-slate-500">How much of the cohort has a current readiness signal.</p></div>
+            <div className="mt-5"><DonutChart data={[{ label: 'Completed', value: analytics?.completedAssessments || 0, color: '#2563eb' }, { label: 'Pending', value: Math.max((analytics?.totalStudents || 0) - (analytics?.completedAssessments || 0), 0), color: '#cbd5e1' }]} total={analytics?.totalStudents || 0} /></div>
+            <p className="mt-5 rounded-xl bg-blue-50 p-3 text-xs leading-relaxed text-blue-900">{completionRate >= 70 ? 'Most of the cohort has measurable readiness data.' : 'Assessment coverage is still developing; prioritize outreach before making cohort-wide curriculum decisions.'}</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+            <div><h3 className="flex items-center gap-2 text-base font-bold text-slate-950"><BarChart3 className="h-4 w-4 text-amber-600" />Gap severity distribution</h3><p className="mt-1 text-xs text-slate-500">Count of tracked skills by action status.</p></div>
+            <div className="mt-6"><BarChart data={skillGapSeverity} max={Math.max(...skillGapSeverity.map(item => item.value), 1)} suffix=" skill" /></div>
+            <div className="mt-5 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900"><Target className="mt-0.5 h-4 w-4 shrink-0" /><span>{skillGapSeverity.find(item => item.label === 'Critical deficit')?.value || 0} critical skill gap{(skillGapSeverity.find(item => item.label === 'Critical deficit')?.value || 0) === 1 ? '' : 's'} should lead curriculum review.</span></div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div><h3 className="text-base font-bold text-slate-950">Demand versus cohort mastery</h3><p className="mt-1 text-xs text-slate-500">The top tracked skills, shown as industry demand versus current mastery.</p></div>
+            <p className="text-xs font-semibold text-blue-700">{analytics?.skillGaps[0] ? `${analytics.skillGaps[0].skill} needs the closest look` : 'Waiting for skill data'}</p>
+          </div>
+          <div className="mt-5"><ComparisonBars data={comparisonData} firstLabel="Industry demand" secondLabel="Cohort mastery" /></div>
+        </div>
+      </section>
 
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
