@@ -18,7 +18,7 @@ interface Props {
 
 const featureCards = [
   { icon: BriefcaseBusiness, title: 'Find your next opportunity', text: 'Explore internships, jobs, apprenticeships, and live projects matched to your skills.' },
-  { icon: ShieldCheck, title: 'Build a profile employers trust', text: 'Show verified skills, assessment results, projects, and a portfolio in one place.' },
+  { icon: ShieldCheck, title: 'Build a profile with useful signals', text: 'Show assessment results, projects, and a portfolio in one place.' },
   { icon: Building2, title: 'Hire with better signals', text: 'Discover prepared candidates using skill-weighted matching instead of guesswork.' },
   { icon: BookOpen, title: 'Connect learning to work', text: 'Find programs, faculty collaborations, and practical pathways that move careers forward.' }
 ];
@@ -27,7 +27,7 @@ export const HomePage: React.FC<Props> = ({ onOpenAuth }) => {
   const featured = MOCK_OPPORTUNITIES.slice(0, 3);
 
   return (
-    <main>
+    <main id="main-content">
       <section className="home-hero relative overflow-hidden border-b border-blue-100">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24">
           <div className="max-w-2xl">
@@ -36,7 +36,7 @@ export const HomePage: React.FC<Props> = ({ onOpenAuth }) => {
               Find work that moves you forward.
             </h1>
             <p className="mt-5 max-w-xl text-base sm:text-lg leading-relaxed text-slate-600">
-              AcademiaNexus brings students, faculty, institutions, and employers into one clear, trusted space for skills, opportunities, and meaningful collaboration.
+              AcademiaNexus brings students, faculty, institutions, and employers into one shared space for skills, opportunities, and meaningful collaboration.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button onClick={() => onOpenAuth('student')} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">

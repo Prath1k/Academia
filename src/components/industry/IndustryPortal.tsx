@@ -28,6 +28,7 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
   const [skillWeights, setSkillWeights] = useState<Record<string, number>>({});
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [hasOpportunityConsent, setHasOpportunityConsent] = useState(false);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -92,6 +93,7 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
       setDescription('');
       setSelectedSkillIds([]);
       setSkillWeights({});
+      setHasOpportunityConsent(false);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Opportunity could not be saved.');
     } finally {
@@ -321,8 +323,9 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
 
             <form onSubmit={handleCreateOpportunity} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Opportunity Title</label>
+                  <label htmlFor="opportunity-title" className="block text-slate-300 font-medium mb-1">Opportunity Title</label>
                 <input
+                    id="opportunity-title"
                   type="text"
                   required
                   placeholder="e.g. Clinical Trial Associate or Cloud Systems Engineer"
@@ -334,8 +337,9 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Opportunity Type</label>
+                  <label htmlFor="opportunity-type" className="block text-slate-300 font-medium mb-1">Opportunity Type</label>
                   <select
+                    id="opportunity-type"
                     value={type}
                     onChange={(e) => setType(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-blue-500"
@@ -348,8 +352,9 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Domain Discipline</label>
+                  <label htmlFor="opportunity-domain" className="block text-slate-300 font-medium mb-1">Domain Discipline</label>
                   <select
+                    id="opportunity-domain"
                     value={domain}
                     onChange={(e) => setDomain(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-blue-500"
@@ -364,8 +369,9 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Stipend / CTC</label>
+                  <label htmlFor="opportunity-stipend" className="block text-slate-300 font-medium mb-1">Stipend / CTC</label>
                   <input
+                    id="opportunity-stipend"
                     type="text"
                     required
                     value={stipend}
@@ -375,8 +381,9 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Duration & Location</label>
+                  <label htmlFor="opportunity-duration" className="block text-slate-300 font-medium mb-1">Duration & Location</label>
                   <input
+                    id="opportunity-duration"
                     type="text"
                     required
                     value={duration}
@@ -387,8 +394,9 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Description & Key Deliverables</label>
+                <label htmlFor="opportunity-description" className="block text-slate-300 font-medium mb-1">Description & Key Deliverables</label>
                 <textarea
+                  id="opportunity-description"
                   rows={3}
                   required
                   placeholder="Outline responsibilities, team structure, and projects..."
@@ -399,7 +407,7 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Select Required Skills (For Matching Engine)</label>
+                <p className="block text-slate-300 font-medium mb-1">Select Required Skills (For Matching Engine)</p>
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 rounded-xl bg-slate-950 border border-slate-800">
                   {skills.map(sk => {
                     const isSelected = selectedSkillIds.includes(sk.id);
@@ -449,6 +457,11 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
                 {formError && <p className="mt-2 text-xs text-rose-400">{formError}</p>}
               </div>
 
+              <label className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-300">
+                <input type="checkbox" required checked={hasOpportunityConsent} onChange={event => setHasOpportunityConsent(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600" />
+                <span>I confirm I have permission to publish this opportunity and understand the supplied details will be visible to eligible workspace users.</span>
+              </label>
+
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
@@ -459,7 +472,7 @@ export const IndustryPortal: React.FC<Props> = ({ currentUserId }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || !hasOpportunityConsent}
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold transition-colors"
                 >
                   {isSaving ? 'Saving...' : 'Publish Opportunity'}

@@ -10,6 +10,8 @@ import { AcademicianPortal } from './components/academician/AcademicianPortal';
 import { IndustryPortal } from './components/industry/IndustryPortal';
 import { InstitutionPortal } from './components/institution/InstitutionPortal';
 import { LoadingScreen } from './components/LoadingScreen';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
+import { LegalPage, LegalPageType } from './components/LegalPage';
 import { dataService } from './services/dataService';
 import { authService, AuthUser } from './services/authService';
 import { MOCK_STUDENT_PROFILES } from './data/mockFallbackData';
@@ -22,6 +24,7 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [authInitialRole, setAuthInitialRole] = useState<UserRole>('student');
+  const [legalPage, setLegalPage] = useState<LegalPageType | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
 
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
@@ -97,12 +100,27 @@ export const App: React.FC = () => {
     setCurrentRole(role);
   };
 
+  const handleOpenLegal = (page: LegalPageType) => {
+    setLegalPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (!isAppReady) {
     return <LoadingScreen />;
   }
 
+  if (legalPage) {
+    return (
+      <>
+        <LegalPage page={legalPage} onBack={() => setLegalPage(null)} onNavigate={handleOpenLegal} />
+        <CookieConsentBanner onOpenPolicy={handleOpenLegal} />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-blue-600 selection:text-white">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       {/* Main Navbar */}
       <Navbar
         currentRole={currentRole}
@@ -150,7 +168,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Role Content */}
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {currentUser && currentRole === 'student' && studentProfile && (
           <StudentPortal student={studentProfile} />
         )}
@@ -182,6 +200,14 @@ export const App: React.FC = () => {
             <span className="text-slate-400">Supabase OAuth Architecture</span>
           </div>
         </div>
+        <div className="max-w-7xl mx-auto mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-800 pt-4 px-4 sm:px-6 lg:px-8 text-[11px] text-slate-400">
+          <span className="font-semibold text-slate-300">Legal</span>
+          <button type="button" onClick={() => handleOpenLegal('privacy')} className="hover:text-blue-300 hover:underline">Privacy Policy</button>
+          <button type="button" onClick={() => handleOpenLegal('terms')} className="hover:text-blue-300 hover:underline">Terms and Conditions</button>
+          <button type="button" onClick={() => handleOpenLegal('cookies')} className="hover:text-blue-300 hover:underline">Cookie Policy</button>
+          <button type="button" onClick={() => handleOpenLegal('refund')} className="hover:text-blue-300 hover:underline">Refund Policy</button>
+          <span className="text-slate-500">No paid services or optional analytics are enabled in this prototype.</span>
+        </div>
       </footer>
 
       {/* Role-Specific Authentication Modal */}
@@ -190,6 +216,7 @@ export const App: React.FC = () => {
         onClose={() => setIsAuthModalOpen(false)}
         initialRole={authInitialRole}
         onAuthSuccess={handleAuthSuccess}
+        onOpenLegal={handleOpenLegal}
       />
 
       {currentUser && isProfileModalOpen && (
@@ -205,6 +232,7 @@ export const App: React.FC = () => {
         isOpen={isBackendModalOpen}
         onClose={() => setIsBackendModalOpen(false)}
       />
+      <CookieConsentBanner onOpenPolicy={handleOpenLegal} />
     </div>
   );
 };

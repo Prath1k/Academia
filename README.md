@@ -93,6 +93,17 @@ scripts/
 - Opportunity skills are saved separately from opportunity records and protected by owner policies.
 - Use private Supabase Storage buckets and signed URLs before adding production document uploads.
 
+## Privacy and Compliance Checklist
+
+- Policy views are available in the app for privacy, terms, cookies, and refunds.
+- The current client has no analytics SDK, advertising pixel, social iframe, or optional tracking cookie.
+- Necessary browser storage is disclosed by the cookie notice; authentication providers may set their own session storage.
+- Account creation, opportunity publishing, and collaboration proposals require an explicit confirmation before submission.
+- Public images are loaded from Unsplash and fonts from Google Fonts. Keep a license/source record, confirm third-party terms, and self-host approved assets before production if required by the operator's privacy or procurement review.
+- Before launch, replace the policy draft notice with the registered operator name, business address, privacy/support email, grievance contact, retention schedule, deletion process, and applicable jurisdiction-specific rights.
+- For India-facing operations, obtain legal review against the Digital Personal Data Protection Act, 2023 and rules or notifications in force at launch. Reassess the notice and consent model before targeting the EEA, UK, California, or other jurisdictions.
+- Do not enable payments, document uploads, analytics, monitoring, chat, marketing pixels, or additional embeds without updating the data map, vendor contracts, cookie inventory, consent controls, and relevant policies.
+
 ## Current Limitations
 
 This project is an active prototype. Production hardening still includes administrator approval tooling, secure document upload and verification, consent and audit controls, interview and offer workflows, notifications, external learning integrations, automated tests, and role-based code splitting.

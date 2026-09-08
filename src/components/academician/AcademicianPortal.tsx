@@ -25,6 +25,7 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [proposalSuccess, setProposalSuccess] = useState(false);
+  const [hasProposalConsent, setHasProposalConsent] = useState(false);
 
   // Proposal form state
   const [proposalTitle, setProposalTitle] = useState('');
@@ -72,6 +73,7 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
       setShowProposalModal(false);
       setProposalTitle('');
       setProposalDesc('');
+      setHasProposalConsent(false);
     }, 1800);
   };
 
@@ -249,8 +251,9 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
             ) : (
               <form onSubmit={handleSendProposal} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Initiative Title</label>
+                  <label htmlFor="proposal-title" className="block text-slate-300 font-medium mb-1">Initiative Title</label>
                   <input
+                    id="proposal-title"
                     type="text"
                     required
                     placeholder="e.g. Joint Pharmacognosy Lab Research or Guest Lecture Series"
@@ -261,8 +264,9 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Collaboration Type</label>
+                  <label htmlFor="proposal-type" className="block text-slate-300 font-medium mb-1">Collaboration Type</label>
                   <select
+                    id="proposal-type"
                     value={proposalType}
                     onChange={(e) => setProposalType(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-teal-500"
@@ -275,8 +279,9 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Scope & Objectives</label>
+                  <label htmlFor="proposal-description" className="block text-slate-300 font-medium mb-1">Scope & Objectives</label>
                   <textarea
+                    id="proposal-description"
                     rows={4}
                     required
                     placeholder="Describe laboratory infrastructure, proposed timeline, and academic deliverables..."
@@ -285,6 +290,11 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-teal-500"
                   />
                 </div>
+
+                <label className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-300">
+                  <input type="checkbox" required checked={hasProposalConsent} onChange={event => setHasProposalConsent(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600" />
+                  <span>I confirm I have permission to submit this proposal and understand it will be shared with relevant workspace users for review.</span>
+                </label>
 
                 <div className="flex items-center justify-end gap-3 pt-2">
                   <button
@@ -296,7 +306,8 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold transition-colors"
+                    disabled={!hasProposalConsent}
+                    className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50 text-white font-semibold transition-colors"
                   >
                     Send Proposal
                   </button>

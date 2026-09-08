@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserRole } from '../../types/database';
 import { authService, AuthUser } from '../../services/authService';
+import { LegalPageType } from '../LegalPage';
 import {
   GraduationCap,
   Microscope,
@@ -21,13 +22,15 @@ interface Props {
   onClose: () => void;
   initialRole: UserRole;
   onAuthSuccess: (user: AuthUser) => void;
+  onOpenLegal?: (page: LegalPageType) => void;
 }
 
 export const AuthModal: React.FC<Props> = ({
   isOpen,
   onClose,
   initialRole,
-  onAuthSuccess
+  onAuthSuccess,
+  onOpenLegal
 }) => {
   const [role, setRole] = useState<UserRole>(initialRole);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -37,11 +40,13 @@ export const AuthModal: React.FC<Props> = ({
   const [institutionOrCompany, setInstitutionOrCompany] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
 
   // Sync role when initialRole changes
   React.useEffect(() => {
     setRole(initialRole);
     setErrorMsg('');
+    setHasAcceptedTerms(false);
   }, [initialRole, isOpen]);
 
   if (!isOpen) return null;
@@ -154,8 +159,8 @@ export const AuthModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden text-slate-100 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200" role="presentation">
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl text-slate-100 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
         {/* Role Selector Tabs at Top */}
         <div className="grid grid-cols-4 border-b border-slate-800 bg-slate-950/80 p-1.5 gap-1 text-xs">
           {(['student', 'academician', 'industry', 'institution'] as UserRole[]).map((r) => {
@@ -193,11 +198,12 @@ export const AuthModal: React.FC<Props> = ({
                 {role.toUpperCase()} GATEWAY
               </span>
             </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">{currentCfg.title}</h2>
+            <h2 id="auth-modal-title" className="text-xl font-bold text-white tracking-tight">{currentCfg.title}</h2>
             <p className="text-xs text-slate-400">{currentCfg.subtitle}</p>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close authentication dialog"
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -213,11 +219,24 @@ export const AuthModal: React.FC<Props> = ({
             </div>
           )}
 
+          {isSignUp && (
+            <label className="flex items-start gap-2 text-[11px] leading-relaxed text-slate-300">
+              <input
+                type="checkbox"
+                required
+                checked={hasAcceptedTerms}
+                onChange={event => setHasAcceptedTerms(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+              />
+              <span>I agree to the <button type="button" onClick={() => onOpenLegal?.('terms')} className="font-semibold text-blue-300 underline underline-offset-2">Terms and Conditions</button> and acknowledge the <button type="button" onClick={() => onOpenLegal?.('privacy')} className="font-semibold text-blue-300 underline underline-offset-2">Privacy Policy</button>.</span>
+            </label>
+          )}
+
           {/* Primary Action: Google OAuth with Distinct Role Branding */}
           <div>
             <button
               onClick={handleGoogleLogin}
-              disabled={loading}
+              disabled={loading || (isSignUp && !hasAcceptedTerms)}
               className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-semibold text-xs transition-all shadow-md active:scale-[0.99]"
             >
               {/* Official Google SVG Icon */}
@@ -255,10 +274,11 @@ export const AuthModal: React.FC<Props> = ({
           <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
             {isSignUp && (
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Full Name</label>
+                <label htmlFor="auth-full-name" className="block text-slate-300 font-medium mb-1">Full Name</label>
                 <div className="relative">
                   <User className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
+                    id="auth-full-name"
                     type="text"
                     required
                     placeholder="Dr. / Prof. / Mr. / Ms."
@@ -271,12 +291,13 @@ export const AuthModal: React.FC<Props> = ({
             )}
 
             <div>
-              <label className="block text-slate-300 font-medium mb-1">
+              <label htmlFor="auth-email" className="block text-slate-300 font-medium mb-1">
                 {role === 'student' ? 'University / Student Email' : role === 'academician' ? 'Faculty Institutional Email' : 'Corporate / Official Email'}
               </label>
               <div className="relative">
                 <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
+                  id="auth-email"
                   type="email"
                   required
                   placeholder={role === 'student' ? 'student@university.edu' : role === 'academician' ? 'professor@institute.ac.in' : 'recruiter@company.com'}
@@ -289,10 +310,11 @@ export const AuthModal: React.FC<Props> = ({
 
             {isSignUp && (
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Institution or Company</label>
+                <label htmlFor="auth-organization" className="block text-slate-300 font-medium mb-1">Institution or Company</label>
                 <div className="relative">
                   <Building className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
+                    id="auth-organization"
                     type="text"
                     required
                     placeholder={currentCfg.orgPlaceholder}
@@ -305,10 +327,11 @@ export const AuthModal: React.FC<Props> = ({
             )}
 
             <div>
-              <label className="block text-slate-300 font-medium mb-1">Password</label>
+              <label htmlFor="auth-password" className="block text-slate-300 font-medium mb-1">Password</label>
               <div className="relative">
                 <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
+                  id="auth-password"
                   type="password"
                   required
                   placeholder="••••••••••••"
@@ -321,7 +344,7 @@ export const AuthModal: React.FC<Props> = ({
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isSignUp && !hasAcceptedTerms)}
               className={`w-full py-2.5 rounded-xl font-semibold text-xs transition-all shadow-lg ${currentCfg.btnClass}`}
             >
               {loading ? 'Authenticating...' : isSignUp ? `Register as ${role.toUpperCase()}` : `Sign In to ${role.toUpperCase()} Workspace`}

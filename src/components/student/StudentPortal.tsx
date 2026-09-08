@@ -148,7 +148,7 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
             <div className="flex items-center gap-3">
               <span className="text-[11px] font-semibold uppercase px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/40 flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
-                Verified Student Profile
+                Student Profile Signals
               </span>
               <span className="text-xs text-slate-400">CGPA: <strong className="text-white">{student.cgpa}</strong></span>
               <span className="text-xs text-slate-400">Year: <strong className="text-white">{student.year_of_study}th Year</strong></span>
@@ -191,7 +191,7 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
             {/* Verified Skills Pills */}
             <div className="space-y-1.5">
               <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
-                Assessed & Verified Competencies
+                Assessment & Skill Signals
               </span>
               <div className="flex flex-wrap gap-2">
                 {student.skills?.map((sk) => (
@@ -449,12 +449,12 @@ export const StudentPortal: React.FC<Props> = ({ student }) => {
             <div>
               <h3 className="text-base font-bold text-white">Student Verified Digital Portfolio</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Official repository of verified projects, certifications, research reports, and achievements.
+                A structured view of projects, certifications, research reports, and achievements.
               </p>
             </div>
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/40 flex items-center gap-1.5">
               <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Verified by Academic Council
+              Review status is shown per item
             </span>
           </div>
 
