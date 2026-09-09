@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FacultyOpportunity, CollaborationInitiative } from '../../types/database';
 import { dataService } from '../../services/dataService';
 import { WorkspaceSkeleton } from '../WorkspaceSkeleton';
+import { SyllabusGapAnalyzer } from './SyllabusGapAnalyzer';
 import {
   Microscope,
   Building2,
@@ -10,7 +11,9 @@ import {
   Clock,
   Send,
   CheckCircle2,
-  BookmarkPlus
+  BookmarkPlus,
+  BookOpen,
+  Handshake
 } from 'lucide-react';
 
 interface Props {
@@ -21,6 +24,7 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
   const [opportunities, setOpportunities] = useState<FacultyOpportunity[]>([]);
   const [collaborations, setCollaborations] = useState<CollaborationInitiative[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activePortalSection, setActivePortalSection] = useState<'sabbaticals' | 'syllabus_analyzer' | 'collaborations'>('syllabus_analyzer');
   const [activeFilter, setActiveFilter] = useState('all');
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [showProposalModal, setShowProposalModal] = useState(false);
@@ -109,7 +113,10 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
 
           <div className="flex flex-wrap gap-3 pt-2">
             <button
-              onClick={() => setShowProposalModal(true)}
+              onClick={() => {
+                setActivePortalSection('sabbaticals');
+                setShowProposalModal(true);
+              }}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-all shadow-lg shadow-teal-600/20"
             >
               <Send className="w-3.5 h-3.5" />
@@ -119,27 +126,81 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-800 pb-2">
+      {/* Main Section Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
         {[
-          { id: 'all', label: 'All Opportunities' },
-          { id: 'faculty_internship', label: 'Faculty Sabbaticals & Internships' },
-          { id: 'fdp', label: 'Faculty Development Programs (FDPs)' },
-          { id: 'collaborative_research', label: 'R&D Grants & Research Partnerships' }
-        ].map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setActiveFilter(id)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
-              activeFilter === id
-                ? 'bg-teal-600 text-white'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+          { id: 'syllabus_analyzer', label: 'Syllabus Gap & Modernization Analyzer', icon: BookOpen, badge: 'SIH Core' },
+          { id: 'sabbaticals', label: 'Faculty Sabbaticals, FDPs & Grants', icon: Microscope, count: opportunities.length },
+          { id: 'collaborations', label: 'MoUs & Collaborative Initiatives', icon: Handshake, count: collaborations.length }
+        ].map(({ id, label, icon: Icon, badge, count }) => {
+          const active = activePortalSection === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setActivePortalSection(id as any)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                active
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{label}</span>
+              {badge && (
+                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-extrabold ${
+                  active ? 'bg-teal-800 text-white' : 'bg-teal-100 text-teal-800'
+                }`}>
+                  {badge}
+                </span>
+              )}
+              {count !== undefined && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                  active ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Section 1: Syllabus Modernization Analyzer */}
+      {activePortalSection === 'syllabus_analyzer' && (
+        <SyllabusGapAnalyzer
+          onRequestCollaboration={(deficitSkill, program) => {
+            setProposalTitle(`Curriculum Modernization: Faculty Training in ${deficitSkill}`);
+            setProposalDesc(`Academic Council proposal for ${program} to bridge student deficit in ${deficitSkill} with industry-sponsored faculty sabbaticals and expert co-teaching.`);
+            setProposalType('curriculum_alignment');
+            setShowProposalModal(true);
+          }}
+        />
+      )}
+
+      {/* Section 2: Opportunities */}
+      {activePortalSection === 'sabbaticals' && (
+        <div className="space-y-6">
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 pb-2">
+            {[
+              { id: 'all', label: 'All Opportunities' },
+              { id: 'faculty_internship', label: 'Faculty Sabbaticals & Internships' },
+              { id: 'fdp', label: 'Faculty Development Programs (FDPs)' },
+              { id: 'collaborative_research', label: 'R&D Grants & Research Partnerships' }
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveFilter(id)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+                  activeFilter === id
+                    ? 'bg-teal-600 text-white shadow-sm'
+                    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
       {/* Grid of Opportunities */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -197,41 +258,55 @@ export const AcademicianPortal: React.FC<Props> = ({ currentUserId }) => {
           );
         })}
       </div>
+    </div>
+  )}
 
-      {/* Collaboration Initiatives Section */}
-      <div className="space-y-4 pt-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-white">Live Industry-Academia Collaborative Initiatives</h3>
-            <p className="text-xs text-slate-400">Upcoming guest lectures, university MoUs, and innovation challenges</p>
-          </div>
+  {/* Collaboration Initiatives Section */}
+  {activePortalSection === 'collaborations' && (
+    <div className="space-y-4 pt-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold text-slate-900">Live Industry-Academia Collaborative Initiatives & MoUs</h3>
+          <p className="text-xs text-slate-500">Upcoming guest lectures, university MoUs, joint lab setups, and innovation challenges</p>
         </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          {collaborations.map((collab) => (
-            <div key={collab.id} className="glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                    {collab.type.replace('_', ' ')}
-                  </span>
-                  {collab.event_date && (
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{collab.event_date}</span>
-                  )}
-                </div>
-                <h4 className="text-sm font-bold text-white">{collab.title}</h4>
-                <p className="text-xs text-slate-400 mt-0.5">Target: <strong className="text-slate-300">{collab.target_institution}</strong></p>
-                <p className="text-xs text-slate-300 mt-2 leading-relaxed">{collab.description}</p>
-              </div>
-
-              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Initiated by: <strong className="text-slate-200">{collab.initiator?.institution_or_company}</strong></span>
-                <span className="text-teal-400 font-semibold uppercase text-[10px] tracking-wider">{collab.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <button
+          onClick={() => {
+            setProposalTitle('Joint Center of Excellence / University MoU');
+            setProposalType('research_partnership');
+            setShowProposalModal(true);
+          }}
+          className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/20 transition-all self-start sm:self-auto"
+        >
+          Propose New Institutional MoU
+        </button>
       </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {collaborations.map((collab) => (
+          <div key={collab.id} className="glass-panel rounded-2xl p-5 border border-slate-200 flex flex-col justify-between space-y-3 bg-white">
+            <div>
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
+                  {collab.type.replace('_', ' ')}
+                </span>
+                {collab.event_date && (
+                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-slate-400" />{collab.event_date}</span>
+                )}
+              </div>
+              <h4 className="text-sm font-bold text-slate-900">{collab.title}</h4>
+              <p className="text-xs text-slate-500 mt-0.5">Target: <strong className="text-slate-800">{collab.target_institution}</strong></p>
+              <p className="text-xs text-slate-600 mt-2 leading-relaxed">{collab.description}</p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Initiated by: <strong className="text-slate-700">{collab.initiator?.institution_or_company}</strong></span>
+              <span className="text-teal-600 font-semibold uppercase text-[10px] tracking-wider">{collab.status}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
 
       {/* Propose Project Modal */}
       {showProposalModal && (

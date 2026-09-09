@@ -121,10 +121,32 @@
   color: var(--ink) !important;
 }
 
-.glass-panel .text-white,
-.bg-slate-900 .text-white,
-.bg-slate-950 .text-white {
+.glass-panel h1.text-white,
+.glass-panel h2.text-white,
+.glass-panel h3.text-white,
+.glass-panel h4.text-white,
+.bg-slate-900 h1.text-white,
+.bg-slate-900 h2.text-white,
+.bg-slate-900 h3.text-white,
+.bg-slate-900 h4.text-white,
+.bg-slate-950 h1.text-white,
+.bg-slate-950 h2.text-white,
+.bg-slate-950 h3.text-white,
+.bg-slate-950 h4.text-white {
   color: var(--ink) !important;
+}
+
+/* Ensure buttons and badges always have crisp readable white text */
+button.text-white,
+a.text-white,
+.btn.text-white,
+[class*="bg-blue-600"],
+[class*="bg-emerald-600"],
+[class*="bg-teal-600"],
+[class*="bg-purple-600"],
+[class*="bg-indigo-600"],
+[class*="bg-rose-600"] {
+  color: #ffffff !important;
 }
 
 .text-slate-300, .text-slate-400, .text-slate-500 {

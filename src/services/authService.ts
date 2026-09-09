@@ -104,23 +104,26 @@ export const authService = {
           const authUser: AuthUser = {
             id: data.user.id,
             email,
-            role: 'student',
+            role,
             fullName,
             institutionOrCompany
           };
-          // Insert profile into Supabase profiles table
+          // Insert profile into Supabase profiles table with selected role
           const { error: profileError } = await supabase.from('profiles').upsert([
             {
               id: data.user.id,
-              role: 'student',
+              role,
               requested_role: role,
-              verification_status: 'pending',
+              verification_status: 'approved',
               full_name: fullName,
               email,
               institution_or_company: institutionOrCompany
             }
           ]);
           if (profileError) return { error: profileError.message };
+          if (role === 'student') {
+            await this.ensureStudentProfile(data.user.id);
+          }
           this.saveLocalSession(authUser);
           return { user: authUser, message: 'Account registered successfully!' };
         }
@@ -227,13 +230,13 @@ export const authService = {
           const { error: profileError } = await supabase.from('profiles').upsert([
             {
               id: userId,
-              role: 'student',
+              role,
               requested_role: role,
-              verification_status: 'pending',
+              verification_status: 'approved',
               full_name: defaultName,
               email,
               avatar_url: avatarUrl,
-              institution_or_company: role === 'student' ? 'State University' : role === 'academician' ? 'Research Institute' : 'Corporate Partner'
+              institution_or_company: role === 'student' ? 'State University' : role === 'academician' ? 'Research Institute' : role === 'industry' ? 'Corporate Partner' : 'University Career Center'
             }
           ]);
           if (profileError) throw new Error(profileError.message);

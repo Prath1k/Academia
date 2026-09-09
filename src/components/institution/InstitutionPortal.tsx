@@ -8,7 +8,6 @@ import {
   ClipboardCheck,
   School,
   Target,
-  TrendingUp,
   AlertTriangle
 } from 'lucide-react';
 
@@ -25,12 +24,6 @@ export const InstitutionPortal: React.FC = () => {
   }
 
   const skillGapMetrics = analytics?.skillGaps || [];
-  const placementStats = analytics ? [
-    { title: 'Total Registered Students', value: analytics.totalStudents.toLocaleString(), change: 'Live student profiles' },
-    { title: 'Completed Skill Assessments', value: analytics.completedAssessments.toLocaleString(), change: 'Profiles with readiness scores' },
-    { title: 'Active Internship Placements', value: analytics.activePlacements.toLocaleString(), change: 'Shortlisted, interview, or offered' },
-    { title: 'Active Industry Partners', value: analytics.activeIndustryPartners.toLocaleString(), change: 'Partners with active opportunities' }
-  ] : [];
   const completionRate = analytics?.totalStudents
     ? Math.round((analytics.completedAssessments / analytics.totalStudents) * 100)
     : 0;
@@ -106,19 +99,6 @@ export const InstitutionPortal: React.FC = () => {
         </div>
       </section>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {placementStats.map((st) => (
-          <div key={st.title} className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-2">
-            <span className="text-xs text-slate-400 font-medium">{st.title}</span>
-            <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{st.value}</p>
-            <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{st.change}</span>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* Cohort Skill Gap Heatmap */}
       <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6">

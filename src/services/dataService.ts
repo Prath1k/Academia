@@ -32,6 +32,27 @@ import {
 } from '../data/mockFallbackData';
 import { normalizeText } from './security';
 
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // fallback if crypto.randomUUID is restricted in certain contexts
+    }
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+const logSupabaseWarning = (operation: string, error: unknown) => {
+  if (error) {
+    console.warn(`[Supabase ${operation}] query notice (using fallback):`, (error as Error).message || error);
+  }
+};
+
 // In-memory state when running local / mock mode so mutations (e.g. creating opportunity, taking test, applying) persist during the session
 let localOpportunities = [...MOCK_OPPORTUNITIES];
 let localApplications = [...MOCK_APPLICATIONS];
@@ -47,6 +68,7 @@ export const dataService = {
       if (role) query = query.eq('role', role);
       const { data, error } = await query;
       if (!error && data) return data as Profile[];
+      logSupabaseWarning('getProfiles', error);
     }
     return role ? MOCK_PROFILES.filter(p => p.role === role) : MOCK_PROFILES;
   },
@@ -56,6 +78,7 @@ export const dataService = {
     if (isSupabaseConfigured() && supabase) {
       const { data, error } = await supabase.from('skills_master').select('*');
       if (!error && data) return data as SkillMaster[];
+      logSupabaseWarning('getSkills', error);
     }
     return MOCK_SKILLS;
   },
@@ -76,6 +99,7 @@ export const dataService = {
         .eq('profile_id', profileId)
         .single();
       if (!error && data) return data as StudentProfile;
+      logSupabaseWarning('getStudentProfile', error);
       return null;
     }
     const found = localStudentProfiles.find(s => s.profile_id === profileId || s.id === profileId);
@@ -103,6 +127,7 @@ export const dataService = {
 
       const { data, error } = await query;
       if (!error && data) return data as Opportunity[];
+      logSupabaseWarning('getOpportunities', error);
     }
 
     let list = [...localOpportunities];
@@ -124,7 +149,7 @@ export const dataService = {
   },
 
   async createOpportunity(opp: Omit<Opportunity, 'id'>): Promise<Opportunity> {
-    const newId = crypto.randomUUID();
+    const newId = generateUUID();
     const newOpp: Opportunity = {
       ...opp,
       id: newId,
@@ -182,6 +207,7 @@ export const dataService = {
       if (type && type !== 'all') query = query.eq('type', type);
       const { data, error } = await query;
       if (!error && data) return data as FacultyOpportunity[];
+      logSupabaseWarning('getFacultyOpportunities', error);
     }
     if (type && type !== 'all') {
       return localFacultyOpps.filter(f => f.type === type);
@@ -194,6 +220,7 @@ export const dataService = {
     if (isSupabaseConfigured() && supabase) {
       const { data, error } = await supabase.from('learning_programs').select('*');
       if (!error && data) return data as LearningProgram[];
+      logSupabaseWarning('getLearningPrograms', error);
     }
     return localLearnings;
   },
@@ -203,6 +230,7 @@ export const dataService = {
     if (isSupabaseConfigured() && supabase) {
       const { data, error } = await supabase.from('collaboration_initiatives').select('*, initiator:profiles(*)');
       if (!error && data) return data as CollaborationInitiative[];
+      logSupabaseWarning('getCollaborations', error);
     }
     return MOCK_COLLABORATIONS;
   },
@@ -215,6 +243,7 @@ export const dataService = {
         .select('*')
         .eq('student_profile_id', studentProfileId);
       if (!error && data) return data as DigitalPortfolioItem[];
+      logSupabaseWarning('getDigitalPortfolio', error);
     }
     return MOCK_PORTFOLIO_ITEMS.filter(p => p.student_profile_id === studentProfileId);
   },
@@ -227,6 +256,7 @@ export const dataService = {
         .eq('student_profile_id', studentProfileId)
         .order('created_at', { ascending: false });
       if (!error && data) return data as CredentialVerification[];
+      logSupabaseWarning('getCredentialVerifications', error);
     }
     return MOCK_CREDENTIAL_VERIFICATIONS.filter(item => item.student_profile_id === studentProfileId);
   },
@@ -290,7 +320,7 @@ export const dataService = {
   async submitAssessment(submission: Omit<AssessmentSubmission, 'id' | 'attempted_at'>): Promise<AssessmentSubmission> {
     const newSubmission: AssessmentSubmission = {
       ...submission,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       attempted_at: new Date().toISOString()
     };
     if (isSupabaseConfigured() && supabase) {
@@ -349,6 +379,7 @@ export const dataService = {
       if (studentProfileId) query = query.eq('student_profile_id', studentProfileId);
       const { data, error } = await query;
       if (!error && data) return data as Application[];
+      logSupabaseWarning('getApplications', error);
     }
     if (studentProfileId) return localApplications.filter(a => a.student_profile_id === studentProfileId);
     return localApplications;
@@ -357,7 +388,7 @@ export const dataService = {
   async applyToOpportunity(application: Omit<Application, 'id' | 'applied_at'>): Promise<Application> {
     const newApp: Application = {
       ...application,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       applied_at: new Date().toISOString()
     };
     if (isSupabaseConfigured() && supabase) {
@@ -391,7 +422,7 @@ export const dataService = {
   ): Promise<void> {
     if (isSupabaseConfigured() && supabase) {
       const { error } = await supabase.from('faculty_applications').insert([{
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         faculty_opportunity_id: facultyOpportunityId,
         academician_profile_id: academicianProfileId
       }]);
@@ -413,7 +444,7 @@ export const dataService = {
     };
     if (isSupabaseConfigured() && supabase) {
       const { error } = await supabase.from('collaboration_proposals').insert([{
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         initiator_id: proposal.initiatorId,
         title: proposal.title,
         type: proposal.type,

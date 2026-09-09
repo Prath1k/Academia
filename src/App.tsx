@@ -32,24 +32,39 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     initAuthAndData();
+
+    const handleHashChange = () => {
+      const rawHash = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
+      if (rawHash.startsWith('legal/')) {
+        const page = rawHash.replace('legal/', '') as LegalPageType;
+        if (['privacy', 'terms', 'cookies', 'refund'].includes(page)) {
+          setLegalPage(page);
+          return;
+        }
+      }
+
+      setLegalPage(null);
+
+      if (['student', 'academician', 'industry', 'institution'].includes(rawHash)) {
+        setCurrentRole(rawHash as UserRole);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    handleHashChange();
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const initAuthAndData = async () => {
-    const startedAt = Date.now();
     try {
       const user = await authService.getCurrentUser();
       if (user) {
         setCurrentUser(user);
         setCurrentRole(user.role);
       }
-      if (user?.role === 'student') {
-        await loadStudents(user.id);
-      }
+      await loadStudents(user?.id);
     } finally {
-      const remainingTime = 3000 - (Date.now() - startedAt);
-      if (remainingTime > 0) {
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
-      }
       setIsAppReady(true);
     }
   };
@@ -57,17 +72,18 @@ export const App: React.FC = () => {
   const loadStudents = async (authenticatedProfileId?: string) => {
     if (authenticatedProfileId) {
       const profile = await dataService.getStudentProfile(authenticatedProfileId);
-      const list = profile ? [profile] : [];
-      setAllStudents(list);
-      setStudentProfile(profile);
-      return;
+      if (profile) {
+        setAllStudents([profile]);
+        setStudentProfile(profile);
+        return;
+      }
     }
 
     const s1 = await dataService.getStudentProfile('22222222-2222-2222-2222-222222220001');
     const s2 = await dataService.getStudentProfile('22222222-2222-2222-2222-222222220002');
     const list = [s1, s2].filter(Boolean) as StudentProfile[];
-    setAllStudents(list);
-    setStudentProfile(list[0] || null);
+    setAllStudents(list.length ? list : MOCK_STUDENT_PROFILES);
+    setStudentProfile(list[0] || MOCK_STUDENT_PROFILES[0]);
   };
 
   const handleOpenAuth = (role?: UserRole) => {
@@ -78,6 +94,7 @@ export const App: React.FC = () => {
   const handleAuthSuccess = (user: AuthUser) => {
     setCurrentUser(user);
     setCurrentRole(user.role);
+    window.location.hash = `#/${user.role}`;
     if (user.role === 'student') {
       if (user.isDemoUser) {
         const demoStudents = MOCK_STUDENT_PROFILES;
@@ -94,17 +111,32 @@ export const App: React.FC = () => {
     setCurrentUser(null);
     setStudentProfile(null);
     setAllStudents([]);
+    window.location.hash = '#/';
   };
 
-  const handleRoleChange = (role: UserRole) => {
-    if (currentUser && role === currentUser.role) {
-      setCurrentRole(role);
+  const handleRoleChange = async (role: UserRole) => {
+    setCurrentRole(role);
+    setLegalPage(null);
+    window.location.hash = `#/${role}`;
+    if (role === 'student' && !studentProfile) {
+      await loadStudents(currentUser?.id);
     }
   };
 
   const handleOpenLegal = (page: LegalPageType) => {
     setLegalPage(page);
+    window.location.hash = `#/legal/${page}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCloseLegal = () => {
+    setLegalPage(null);
+    window.location.hash = currentUser ? `#/${currentRole}` : '#/';
+  };
+
+  const handleQuickDemoLogin = (role: UserRole) => {
+    const demo = authService.simulateDemoLogin(role);
+    handleAuthSuccess(demo.user);
   };
 
   if (!isAppReady) {
@@ -114,7 +146,7 @@ export const App: React.FC = () => {
   if (legalPage) {
     return (
       <>
-        <LegalPage page={legalPage} onBack={() => setLegalPage(null)} onNavigate={handleOpenLegal} />
+        <LegalPage page={legalPage} onBack={handleCloseLegal} onNavigate={handleOpenLegal} />
         <CookieConsentBanner onOpenPolicy={handleOpenLegal} />
       </>
     );
@@ -131,11 +163,17 @@ export const App: React.FC = () => {
         onOpenAuthModal={handleOpenAuth}
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onGoHome={() => {
+          setLegalPage(null);
           if (!currentUser) {
             setCurrentRole('student');
+            window.location.hash = '#/';
+          } else {
+            window.location.hash = `#/${currentUser.role}`;
+            setCurrentRole(currentUser.role);
           }
         }}
         onSignOut={handleSignOut}
+        onQuickDemoLogin={handleQuickDemoLogin}
       />
 
       {!currentUser && <HomePage onOpenAuth={handleOpenAuth} />}

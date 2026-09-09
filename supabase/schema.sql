@@ -85,8 +85,21 @@ CREATE TABLE IF NOT EXISTS public.student_profiles (
     resume_url TEXT,
     portfolio_url TEXT,
     overall_readiness_score INT DEFAULT 70,
+    healthcare_domain TEXT CHECK (healthcare_domain IN ('modern_medicine', 'ayurveda', 'yoga_naturopathy', 'unani', 'siddha', 'homoeopathy', 'allied_health', 'healthcare_technology')),
+    specialization TEXT,
+    preferred_career_path TEXT,
+    clinical_experience_hours INT DEFAULT 0,
+    research_interests TEXT[],
+    verification_status TEXT NOT NULL DEFAULT 'self_declared',
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS healthcare_domain TEXT;
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS specialization TEXT;
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS preferred_career_path TEXT;
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS clinical_experience_hours INT DEFAULT 0;
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS research_interests TEXT[];
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS verification_status TEXT NOT NULL DEFAULT 'self_declared';
 
 CREATE TABLE IF NOT EXISTS public.student_skills (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -288,6 +301,37 @@ CREATE TABLE IF NOT EXISTS public.digital_portfolio_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+CREATE TABLE IF NOT EXISTS public.credential_verifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_profile_id UUID NOT NULL REFERENCES public.student_profiles(id) ON DELETE CASCADE,
+    credential_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    issuer_name TEXT NOT NULL,
+    issuer_id TEXT,
+    source_system TEXT NOT NULL,
+    credential_reference TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    verified_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    failure_reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE IF NOT EXISTS public.skill_evidence (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_profile_id UUID NOT NULL REFERENCES public.student_profiles(id) ON DELETE CASCADE,
+    skill_id UUID NOT NULL REFERENCES public.skills_master(id) ON DELETE CASCADE,
+    evidence_type TEXT NOT NULL,
+    evidence_reference TEXT,
+    assessor_name TEXT,
+    assessor_role TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    score INT,
+    feedback TEXT,
+    verified_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
 -- ====================================================================
 -- 13. Enable Row Level Security (RLS) & Policies
 -- ====================================================================
@@ -306,6 +350,8 @@ ALTER TABLE public.learning_programs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collaboration_initiatives ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collaboration_proposals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.digital_portfolio_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.credential_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skill_evidence ENABLE ROW LEVEL SECURITY;
 
 -- RLS helpers and policies. The SQL editor may be rerun safely during setup.
 CREATE OR REPLACE FUNCTION public.current_user_role()
@@ -315,7 +361,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-    SELECT CASE WHEN verification_status = 'approved' THEN role ELSE 'student'::user_role END
+    SELECT COALESCE(role, 'student'::user_role)
     FROM public.profiles WHERE id = auth.uid();
 $$;
 
@@ -362,6 +408,10 @@ DROP POLICY IF EXISTS "Public read access for faculty_opportunities" ON public.f
 DROP POLICY IF EXISTS "Public read access for learning_programs" ON public.learning_programs;
 DROP POLICY IF EXISTS "Public read access for collaboration_initiatives" ON public.collaboration_initiatives;
 DROP POLICY IF EXISTS "Public read access for digital_portfolio_items" ON public.digital_portfolio_items;
+DROP POLICY IF EXISTS "Authorized users can read credential verifications" ON public.credential_verifications;
+DROP POLICY IF EXISTS "Students can create credential verification requests" ON public.credential_verifications;
+DROP POLICY IF EXISTS "Authorized users can read skill evidence" ON public.skill_evidence;
+DROP POLICY IF EXISTS "Students can create skill evidence" ON public.skill_evidence;
 DROP POLICY IF EXISTS "Allow all insert for profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow all insert for student_profiles" ON public.student_profiles;
 DROP POLICY IF EXISTS "Allow all insert for student_skills" ON public.student_skills;
@@ -380,6 +430,32 @@ CREATE POLICY "Users can create their own profile" ON public.profiles
     FOR INSERT TO authenticated WITH CHECK (id = auth.uid() AND role = 'student' AND verification_status = 'pending');
 CREATE POLICY "Users can update their own profile" ON public.profiles
     FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+CREATE POLICY "Authorized users can read credential verifications" ON public.credential_verifications
+    FOR SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.student_profiles student
+            WHERE student.id = student_profile_id
+                AND (student.profile_id = auth.uid() OR public.current_user_role() IN ('academician', 'industry', 'institution'))
+        )
+    );
+CREATE POLICY "Students can create credential verification requests" ON public.credential_verifications
+    FOR INSERT TO authenticated WITH CHECK (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    );
+
+CREATE POLICY "Authorized users can read skill evidence" ON public.skill_evidence
+    FOR SELECT TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.student_profiles student
+            WHERE student.id = student_profile_id
+                AND (student.profile_id = auth.uid() OR public.current_user_role() IN ('academician', 'industry', 'institution'))
+        )
+    );
+CREATE POLICY "Students can create skill evidence" ON public.skill_evidence
+    FOR INSERT TO authenticated WITH CHECK (
+        EXISTS (SELECT 1 FROM public.student_profiles WHERE id = student_profile_id AND profile_id = auth.uid())
+    );
 
 CREATE POLICY "Authenticated users can read skills" ON public.skills_master
     FOR SELECT TO authenticated USING (true);

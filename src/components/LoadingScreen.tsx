@@ -17,3 +17,4 @@ export const LoadingScreen: React.FC = () => (
     </div>
   </div>
 );
+export default LoadingScreen;

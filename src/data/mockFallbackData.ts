@@ -7,6 +7,7 @@ import {
   LearningProgram,
   CollaborationInitiative,
   DigitalPortfolioItem,
+  CredentialVerification,
   AssessmentQuestion,
   Application
 } from '../types/database';
@@ -175,6 +176,12 @@ export const MOCK_STUDENT_PROFILES: StudentProfile[] = [
     year_of_study: 4,
     cgpa: 8.85,
     overall_readiness_score: 84,
+    healthcare_domain: 'healthcare_technology',
+    specialization: 'Biomedical Systems',
+    preferred_career_path: 'Clinical AI and Digital Health',
+    clinical_experience_hours: 42,
+    research_interests: ['Clinical decision support', 'Healthcare informatics'],
+    verification_status: 'institution_verified',
     profile: MOCK_PROFILES[0],
     skills: [
       {
@@ -214,6 +221,12 @@ export const MOCK_STUDENT_PROFILES: StudentProfile[] = [
     year_of_study: 2,
     cgpa: 9.20,
     overall_readiness_score: 91,
+    healthcare_domain: 'ayurveda',
+    specialization: 'Dravyaguna & Clinical Pharmacology',
+    preferred_career_path: 'AYUSH Clinical Research',
+    clinical_experience_hours: 180,
+    research_interests: ['Herbal formulation', 'Pharmacovigilance'],
+    verification_status: 'institution_verified',
     profile: MOCK_PROFILES[1],
     skills: [
       {
@@ -473,6 +486,31 @@ export const MOCK_PORTFOLIO_ITEMS: DigitalPortfolioItem[] = [
     verification_status: 'verified',
     verification_issuer: 'National Institute of Ayurveda',
     date_awarded: '2026-05-20'
+  }
+];
+
+export const MOCK_CREDENTIAL_VERIFICATIONS: CredentialVerification[] = [
+  {
+    id: 'credential-1',
+    student_profile_id: '33333333-3333-3333-3333-333333330002',
+    credential_type: 'degree',
+    title: 'MD (Ayurveda) Enrollment Record',
+    issuer_name: 'All India Institute of Ayurveda',
+    source_system: 'manual_review',
+    credential_reference: 'AIIA-AY-2026-002',
+    status: 'institution_verified',
+    verified_at: '2026-07-12T09:00:00Z'
+  },
+  {
+    id: 'credential-2',
+    student_profile_id: '33333333-3333-3333-3333-333333330002',
+    credential_type: 'certificate',
+    title: 'Good Clinical Practice (GCP)',
+    issuer_name: 'National Clinical Board',
+    source_system: 'qr_code',
+    credential_reference: 'GCP-2026-1842',
+    status: 'government_verified',
+    verified_at: '2026-06-20T09:00:00Z'
   }
 ];
 

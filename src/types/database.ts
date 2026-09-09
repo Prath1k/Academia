@@ -8,6 +8,12 @@ export type ApplicationStatus = 'applied' | 'under_review' | 'shortlisted' | 'in
 
 export type SkillCategory = 'technical' | 'soft' | 'aptitude' | 'domain_specialized';
 
+export type HealthcareDomain = 'modern_medicine' | 'ayurveda' | 'yoga_naturopathy' | 'unani' | 'siddha' | 'homoeopathy' | 'allied_health' | 'healthcare_technology';
+
+export type VerificationStatus = 'self_declared' | 'pending' | 'verified' | 'assessment_verified' | 'faculty_verified' | 'hospital_verified' | 'institution_verified' | 'government_verified' | 'industry_verified' | 'rejected' | 'expired' | 'revoked';
+
+export type CredentialType = 'degree' | 'certificate' | 'internship' | 'clinical_skill' | 'research' | 'registration' | 'achievement';
+
 export interface Profile {
   id: string;
   role: UserRole;
@@ -40,6 +46,12 @@ export interface StudentProfile {
   resume_url?: string;
   portfolio_url?: string;
   overall_readiness_score: number;
+  healthcare_domain?: HealthcareDomain;
+  specialization?: string;
+  preferred_career_path?: string;
+  clinical_experience_hours?: number;
+  research_interests?: string[];
+  verification_status?: VerificationStatus;
   profile?: Profile;
   skills?: StudentSkill[];
 }
@@ -51,6 +63,7 @@ export interface StudentSkill {
   proficiency_level: number; // 1 to 5
   is_verified: boolean;
   verified_by?: string;
+  verification_status?: VerificationStatus;
   skill?: SkillMaster;
 }
 
@@ -167,12 +180,41 @@ export interface DigitalPortfolioItem {
   id: string;
   student_profile_id: string;
   title: string;
-  item_type: 'project' | 'certification' | 'internship_report' | 'academic_record' | 'achievement';
+  item_type: 'project' | 'certification' | 'internship_report' | 'academic_record' | 'achievement' | 'case_study' | 'clinical_observation' | 'research' | 'cme';
   description?: string;
-  verification_status: 'verified' | 'pending';
+  verification_status: VerificationStatus;
   verification_issuer?: string;
   document_url?: string;
   date_awarded?: string;
+}
+
+export interface CredentialVerification {
+  id: string;
+  student_profile_id: string;
+  credential_type: CredentialType;
+  title: string;
+  issuer_name: string;
+  issuer_id?: string;
+  source_system: 'digilocker' | 'nad' | 'university_api' | 'hospital_api' | 'private_issuer' | 'qr_code' | 'manual_review';
+  credential_reference?: string;
+  status: VerificationStatus;
+  verified_at?: string;
+  expires_at?: string;
+  failure_reason?: string;
+}
+
+export interface SkillEvidence {
+  id: string;
+  student_profile_id: string;
+  skill_id: string;
+  evidence_type: 'assessment' | 'case_study' | 'internship_logbook' | 'certificate' | 'supervisor_feedback' | 'research_project';
+  evidence_reference?: string;
+  assessor_name?: string;
+  assessor_role?: string;
+  status: VerificationStatus;
+  score?: number;
+  feedback?: string;
+  verified_at?: string;
 }
 
 export interface Application {

@@ -54,7 +54,9 @@ const TABLES = [
   'faculty_opportunities',
   'learning_programs',
   'collaboration_initiatives',
-  'digital_portfolio_items'
+  'digital_portfolio_items',
+  'credential_verifications',
+  'skill_evidence'
 ];
 
 async function verify() {
